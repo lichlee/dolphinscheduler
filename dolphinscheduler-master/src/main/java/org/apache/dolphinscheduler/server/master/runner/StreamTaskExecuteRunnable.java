@@ -126,6 +126,7 @@ public class StreamTaskExecuteRunnable implements Runnable {
         this.taskDefinition = taskDefinition;
         this.taskExecuteStartMessage = taskExecuteStartMessage;
         this.taskExecutionContextFactory = SpringApplicationContext.getBean(TaskExecutionContextFactory.class);
+        this.defaultTaskExecuteRunnableFactory = SpringApplicationContext.getBean(DefaultTaskExecuteRunnableFactory.class);
     }
 
     public TaskInstance getTaskInstance() {
@@ -153,7 +154,8 @@ public class StreamTaskExecuteRunnable implements Runnable {
                     defaultTaskExecuteRunnableFactory.createTaskExecuteRunnable(taskInstance);
             workerTaskDispatcher.dispatchTask(taskExecuteRunnable);
         } catch (Exception e) {
-            log.error("Master dispatch task to worker error, taskInstanceName: {}", taskInstance.getName(), e);
+            // log.error("Master dispatch task to worker error, taskInstanceName: {}", taskInstance.getName(), e);
+            log.error(String.format("Master dispatch task to worker error, taskInstanceName: %s",taskInstance.getName()), e);
             taskInstance.setState(TaskExecutionStatus.FAILURE);
             taskInstanceDao.upsertTaskInstance(taskInstance);
             return;

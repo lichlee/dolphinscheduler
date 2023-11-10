@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -76,10 +77,10 @@ public class DagHelper {
     /**
      * generate task nodes needed by dag
      *
-     * @param taskNodeList taskNodeList
-     * @param startNodeNameList startNodeNameList
+     * @param taskNodeList         taskNodeList
+     * @param startNodeNameList    startNodeNameList
      * @param recoveryNodeCodeList recoveryNodeCodeList
-     * @param taskDependType taskDependType
+     * @param taskDependType       taskDependType
      * @return task node list
      */
     public static List<TaskNode> generateFlowNodeListByStartNode(List<TaskNode> taskNodeList,
@@ -139,7 +140,7 @@ public class DagHelper {
     /**
      * find all the nodes that depended on the start node
      *
-     * @param startNode startNode
+     * @param startNode    startNode
      * @param taskNodeList taskNodeList
      * @return task node list
      */
@@ -166,9 +167,9 @@ public class DagHelper {
     /**
      * find all nodes that start nodes depend on.
      *
-     * @param startNode startNode
+     * @param startNode            startNode
      * @param recoveryNodeCodeList recoveryNodeCodeList
-     * @param taskNodeList taskNodeList
+     * @param taskNodeList         taskNodeList
      * @return task node list
      */
     private static List<TaskNode> getFlowNodeListPre(TaskNode startNode,
@@ -204,10 +205,10 @@ public class DagHelper {
     /**
      * generate dag by start nodes and recovery nodes
      *
-     * @param totalTaskNodeList totalTaskNodeList
-     * @param startNodeNameList startNodeNameList
+     * @param totalTaskNodeList    totalTaskNodeList
+     * @param startNodeNameList    startNodeNameList
      * @param recoveryNodeCodeList recoveryNodeCodeList
-     * @param depNodeType depNodeType
+     * @param depNodeType          depNodeType
      * @return process dag
      * @throws Exception if error throws Exception
      */
@@ -232,7 +233,7 @@ public class DagHelper {
      * find node by node name
      *
      * @param nodeDetails nodeDetails
-     * @param nodeName nodeName
+     * @param nodeName    nodeName
      * @return task node
      */
     public static TaskNode findNodeByName(List<TaskNode> nodeDetails, String nodeName) {
@@ -248,7 +249,7 @@ public class DagHelper {
      * find node by node code
      *
      * @param nodeDetails nodeDetails
-     * @param nodeCode nodeCode
+     * @param nodeCode    nodeCode
      * @return task node
      */
     public static TaskNode findNodeByCode(List<TaskNode> nodeDetails, Long nodeCode) {
@@ -263,8 +264,8 @@ public class DagHelper {
     /**
      * the task can be submit when  all the depends nodes are forbidden or complete
      *
-     * @param taskNode taskNode
-     * @param dag dag
+     * @param taskNode         taskNode
+     * @param dag              dag
      * @param completeTaskList completeTaskList
      * @return can submit
      */
@@ -314,6 +315,8 @@ public class DagHelper {
         } else {
             startVertexes = dag.getSubsequentNodes(preNodeCode);
         }
+        log.info("## startVertexes size: {}", startVertexes.size());
+
         for (Long subsequent : startVertexes) {
             TaskNode taskNode = dag.getNode(subsequent);
             if (taskNode == null) {
@@ -321,13 +324,17 @@ public class DagHelper {
                 continue;
             }
             if (isTaskNodeNeedSkip(taskNode, skipTaskNodeList)) {
+                log.info("## skip task: {}",
+                        StringUtils.join(skipTaskNodeList.values().stream().map(TaskNode::getCode).collect(Collectors.toList()), ","));
                 setTaskNodeSkip(subsequent, dag, completeTaskList, skipTaskNodeList);
                 continue;
             }
             if (!DagHelper.allDependsForbiddenOrEnd(taskNode, dag, skipTaskNodeList, completeTaskList)) {
+                log.info("## DependsForbiddenOrEnd task");
                 continue;
             }
             if (taskNode.isForbidden() || completeTaskList.containsKey(subsequent)) {
+                log.info("## DependsForbiddenOrEnd task");
                 postNodeList.addAll(parsePostNodes(subsequent, skipTaskNodeList, dag, completeTaskList));
                 continue;
             }
@@ -447,6 +454,7 @@ public class DagHelper {
 
     /**
      * get all downstream nodes of the branch that the switch node needs to execute
+     *
      * @param taskCode
      * @param dag
      * @param switchNeedWorkCodes
@@ -480,6 +488,7 @@ public class DagHelper {
             }
         }
     }
+
     /**
      * set task node and the post nodes skip flag
      */

@@ -230,17 +230,17 @@ public class WorkflowExecuteRunnable implements IWorkflowExecuteRunnable {
     private final MasterConfig masterConfig;
 
     public WorkflowExecuteRunnable(
-                                   @NonNull IWorkflowExecuteContext workflowExecuteContext,
-                                   @NonNull CommandService commandService,
-                                   @NonNull ProcessService processService,
-                                   @NonNull ProcessInstanceDao processInstanceDao,
-                                   @NonNull MasterRpcClient masterRpcClient,
-                                   @NonNull ProcessAlertManager processAlertManager,
-                                   @NonNull MasterConfig masterConfig,
-                                   @NonNull StateWheelExecuteThread stateWheelExecuteThread,
-                                   @NonNull CuringParamsService curingParamsService,
-                                   @NonNull TaskInstanceDao taskInstanceDao,
-                                   @NonNull DefaultTaskExecuteRunnableFactory defaultTaskExecuteRunnableFactory) {
+            @NonNull IWorkflowExecuteContext workflowExecuteContext,
+            @NonNull CommandService commandService,
+            @NonNull ProcessService processService,
+            @NonNull ProcessInstanceDao processInstanceDao,
+            @NonNull MasterRpcClient masterRpcClient,
+            @NonNull ProcessAlertManager processAlertManager,
+            @NonNull MasterConfig masterConfig,
+            @NonNull StateWheelExecuteThread stateWheelExecuteThread,
+            @NonNull CuringParamsService curingParamsService,
+            @NonNull TaskInstanceDao taskInstanceDao,
+            @NonNull DefaultTaskExecuteRunnableFactory defaultTaskExecuteRunnableFactory) {
         this.processService = processService;
         this.commandService = commandService;
         this.processInstanceDao = processInstanceDao;
@@ -449,7 +449,6 @@ public class WorkflowExecuteRunnable implements IWorkflowExecuteRunnable {
 
     /**
      * release task group
-     *
      */
     public void releaseTaskGroup(TaskInstance taskInstance) throws RemotingException, InterruptedException {
         ProcessInstance workflowInstance = workflowExecuteContext.getWorkflowInstance();
@@ -484,7 +483,6 @@ public class WorkflowExecuteRunnable implements IWorkflowExecuteRunnable {
 
     /**
      * crate new task instance to retry, different objects from the original
-     *
      */
     private void retryTaskInstance(TaskInstance taskInstance) throws StateEventHandleException {
         ProcessInstance workflowInstance = workflowExecuteContext.getWorkflowInstance();
@@ -1058,6 +1056,7 @@ public class WorkflowExecuteRunnable implements IWorkflowExecuteRunnable {
     private TaskInstance createTaskInstance(ProcessInstance processInstance, TaskNode taskNode) {
         TaskInstance taskInstance = findTaskIfExists(taskNode.getCode(), taskNode.getVersion());
         if (taskInstance != null) {
+            log.info("## taskInstance exists! {}", JSONUtils.toJsonString(taskInstance));
             return taskInstance;
         }
 
@@ -1114,7 +1113,7 @@ public class WorkflowExecuteRunnable implements IWorkflowExecuteRunnable {
      * new a taskInstance
      *
      * @param processInstance process instance
-     * @param taskNode task node
+     * @param taskNode        task node
      * @return task instance
      */
     public TaskInstance newTaskInstance(ProcessInstance processInstance, TaskNode taskNode) {
@@ -1202,6 +1201,7 @@ public class WorkflowExecuteRunnable implements IWorkflowExecuteRunnable {
         // delay execution time
         taskInstance.setDelayTime(taskNode.getDelayTime());
         taskInstance.setTaskExecuteType(taskNode.getTaskExecuteType());
+        log.info("## taskInstance create: {}", JSONUtils.toJsonString(taskInstance));
         return taskInstance;
     }
 
@@ -1312,12 +1312,20 @@ public class WorkflowExecuteRunnable implements IWorkflowExecuteRunnable {
     }
 
     private void submitPostNode(Long parentNodeCode) throws StateEventHandleException {
+        log.info("## parentNodeCode is ： {}", parentNodeCode);
         ProcessInstance workflowInstance = workflowExecuteContext.getWorkflowInstance();
+        log.info("## workflowInstance is ： {}", JSONUtils.toJsonString(workflowInstance));
         DAG<Long, TaskNode, TaskNodeRelation> dag = workflowExecuteContext.getWorkflowGraph().getDag();
+
+        log.info("## dag: {}", StringUtils.join(dag.getAllNodesList(), ","));
 
         Set<Long> submitTaskNodeList =
                 DagHelper.parsePostNodes(parentNodeCode, skipTaskNodeMap, dag, getCompleteTaskInstanceMap());
         List<TaskInstance> taskInstances = new ArrayList<>();
+
+        log.info("## submitTaskNodeList size is ： {}", submitTaskNodeList.size());
+        log.info("## submitTaskNodeList is ： {}", StringUtils.join(submitTaskNodeList, ","));
+
         for (Long taskNode : submitTaskNodeList) {
             TaskNode taskNodeObject = dag.getNode(taskNode);
             Optional<TaskInstance> existTaskInstanceOptional = getTaskInstance(taskNodeObject.getCode());
@@ -1391,9 +1399,10 @@ public class WorkflowExecuteRunnable implements IWorkflowExecuteRunnable {
             }
         }
 
+        log.info("## taskInstances size is ： {}", taskInstances.size());
         // if previous node success , post node submit
         for (TaskInstance task : taskInstances) {
-
+            log.info("## TaskInstance is ： {}", JSONUtils.toJsonString(task));
             if (readyToSubmitTaskQueue.contains(task)) {
                 log.warn("Task is already at submit queue, taskInstanceName: {}", task.getName());
                 continue;
@@ -1683,7 +1692,7 @@ public class WorkflowExecuteRunnable implements IWorkflowExecuteRunnable {
             }
         }
         if (readyToSubmitTaskQueue.size() > 0) {
-            for (Iterator<TaskInstance> iter = readyToSubmitTaskQueue.iterator(); iter.hasNext();) {
+            for (Iterator<TaskInstance> iter = readyToSubmitTaskQueue.iterator(); iter.hasNext(); ) {
                 iter.next().setState(TaskExecutionStatus.PAUSE);
             }
         }
@@ -1877,7 +1886,7 @@ public class WorkflowExecuteRunnable implements IWorkflowExecuteRunnable {
      * @return Boolean whether has retry task in standby
      */
     private boolean hasRetryTaskInStandBy() {
-        for (Iterator<TaskInstance> iter = readyToSubmitTaskQueue.iterator(); iter.hasNext();) {
+        for (Iterator<TaskInstance> iter = readyToSubmitTaskQueue.iterator(); iter.hasNext(); ) {
             if (iter.next().getState().isFailure()) {
                 return true;
             }
@@ -2014,7 +2023,7 @@ public class WorkflowExecuteRunnable implements IWorkflowExecuteRunnable {
         // todo: Can we use a better way to set the recover taskInstanceId list? rather then use the cmdParam
         if (paramMap != null && paramMap.containsKey(CMD_PARAM_RECOVERY_START_NODE_STRING)) {
             List<Integer> startTaskInstanceIds = Arrays.stream(paramMap.get(CMD_PARAM_RECOVERY_START_NODE_STRING)
-                    .split(COMMA))
+                            .split(COMMA))
                     .filter(StringUtils::isNotEmpty)
                     .map(Integer::valueOf)
                     .collect(Collectors.toList());
