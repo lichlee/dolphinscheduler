@@ -20,6 +20,7 @@ package org.apache.dolphinscheduler.server.master.processor;
 import org.apache.dolphinscheduler.common.utils.JSONUtils;
 import org.apache.dolphinscheduler.dao.entity.TaskDefinition;
 import org.apache.dolphinscheduler.dao.repository.TaskDefinitionDao;
+import org.apache.dolphinscheduler.plugin.storage.api.StorageOperate;
 import org.apache.dolphinscheduler.remote.command.Message;
 import org.apache.dolphinscheduler.remote.command.MessageType;
 import org.apache.dolphinscheduler.remote.command.task.TaskExecuteStartMessage;
@@ -44,6 +45,9 @@ public class TaskExecuteStartProcessor implements MasterRpcProcessor {
     @Autowired
     private StreamTaskExecuteThreadPool streamTaskExecuteThreadPool;
 
+    @Autowired(required = false)
+    private StorageOperate storageOperate;
+
     @Autowired
     private TaskDefinitionDao taskDefinitionDao;
 
@@ -61,7 +65,7 @@ public class TaskExecuteStartProcessor implements MasterRpcProcessor {
                     taskExecuteStartMessage.getTaskDefinitionVersion());
             return;
         }
-        streamTaskExecuteThreadPool.execute(new StreamTaskExecuteRunnable(taskDefinition, taskExecuteStartMessage));
+        streamTaskExecuteThreadPool.execute(new StreamTaskExecuteRunnable(taskDefinition, taskExecuteStartMessage, storageOperate));
 
         // response
         Message response = new Message(message.getOpaque());

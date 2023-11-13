@@ -18,11 +18,20 @@
 package org.apache.dolphinscheduler.server.master.runner;
 
 import static org.apache.dolphinscheduler.common.constants.Constants.DEFAULT_WORKER_GROUP;
+import static org.apache.dolphinscheduler.common.constants.Constants.SINGLE_SLASH;
 
+import com.google.common.base.Strings;
+import lombok.SneakyThrows;
+import org.apache.commons.collections4.MapUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.dolphinscheduler.common.constants.Constants;
+import org.apache.dolphinscheduler.common.constants.TenantConstants;
 import org.apache.dolphinscheduler.common.enums.Flag;
 import org.apache.dolphinscheduler.common.enums.Priority;
 import org.apache.dolphinscheduler.common.thread.ThreadUtils;
+import org.apache.dolphinscheduler.common.utils.FileUtils;
+import org.apache.dolphinscheduler.common.utils.JSONUtils;
+import org.apache.dolphinscheduler.common.utils.OSUtils;
 import org.apache.dolphinscheduler.dao.entity.Environment;
 import org.apache.dolphinscheduler.dao.entity.ProcessDefinition;
 import org.apache.dolphinscheduler.dao.entity.ProcessTaskRelation;
@@ -31,10 +40,11 @@ import org.apache.dolphinscheduler.dao.entity.TaskDefinition;
 import org.apache.dolphinscheduler.dao.entity.TaskInstance;
 import org.apache.dolphinscheduler.dao.mapper.ProcessTaskRelationMapper;
 import org.apache.dolphinscheduler.dao.repository.TaskInstanceDao;
-import org.apache.dolphinscheduler.plugin.task.api.TaskChannel;
-import org.apache.dolphinscheduler.plugin.task.api.TaskExecutionContext;
-import org.apache.dolphinscheduler.plugin.task.api.TaskPluginManager;
+import org.apache.dolphinscheduler.plugin.storage.api.StorageOperate;
+import org.apache.dolphinscheduler.plugin.task.api.*;
+import org.apache.dolphinscheduler.plugin.task.api.enums.Direct;
 import org.apache.dolphinscheduler.plugin.task.api.enums.TaskExecutionStatus;
+import org.apache.dolphinscheduler.plugin.task.api.log.TaskInstanceLogHeader;
 import org.apache.dolphinscheduler.plugin.task.api.model.Property;
 import org.apache.dolphinscheduler.plugin.task.api.model.ResourceInfo;
 import org.apache.dolphinscheduler.plugin.task.api.parameters.AbstractParameters;
@@ -42,6 +52,7 @@ import org.apache.dolphinscheduler.plugin.task.api.parameters.ParametersNode;
 import org.apache.dolphinscheduler.plugin.task.api.parameters.resource.ResourceParametersHelper;
 import org.apache.dolphinscheduler.plugin.task.api.utils.LogUtils;
 import org.apache.dolphinscheduler.plugin.task.api.utils.ParameterUtils;
+import org.apache.dolphinscheduler.remote.command.MessageType;
 import org.apache.dolphinscheduler.remote.command.task.TaskExecuteRunningMessageAck;
 import org.apache.dolphinscheduler.remote.command.task.TaskExecuteStartMessage;
 import org.apache.dolphinscheduler.server.master.builder.TaskExecutionContextBuilder;
@@ -49,12 +60,15 @@ import org.apache.dolphinscheduler.server.master.cache.StreamTaskInstanceExecCac
 import org.apache.dolphinscheduler.server.master.config.MasterConfig;
 import org.apache.dolphinscheduler.server.master.event.StateEventHandleError;
 import org.apache.dolphinscheduler.server.master.event.StateEventHandleException;
+import org.apache.dolphinscheduler.server.master.exception.TaskExecuteRunnableCreateException;
+import org.apache.dolphinscheduler.server.master.exception.TaskExecutionContextCreateException;
 import org.apache.dolphinscheduler.server.master.metrics.TaskMetrics;
 import org.apache.dolphinscheduler.server.master.processor.queue.TaskEvent;
 import org.apache.dolphinscheduler.server.master.runner.dispatcher.WorkerTaskDispatcher;
 import org.apache.dolphinscheduler.server.master.runner.execute.DefaultTaskExecuteRunnable;
 import org.apache.dolphinscheduler.server.master.runner.execute.DefaultTaskExecuteRunnableFactory;
 import org.apache.dolphinscheduler.server.master.runner.execute.TaskExecutionContextFactory;
+import org.apache.dolphinscheduler.server.master.utils.TaskUtils;
 import org.apache.dolphinscheduler.service.bean.SpringApplicationContext;
 import org.apache.dolphinscheduler.service.process.ProcessService;
 import org.apache.dolphinscheduler.spi.enums.ResourceType;
@@ -62,18 +76,21 @@ import org.apache.dolphinscheduler.spi.enums.ResourceType;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+
+import javax.annotation.Nullable;
 
 /**
  * stream task execute
@@ -107,6 +124,14 @@ public class StreamTaskExecuteRunnable implements Runnable {
 
     protected TaskExecutionContextFactory taskExecutionContextFactory;
 
+    protected TaskExecutionContext taskExecutionContext;
+
+    protected StorageOperate storageOperate;
+
+    protected @Nullable
+    AbstractTask task;
+
+
     /**
      * task event queue
      */
@@ -114,7 +139,7 @@ public class StreamTaskExecuteRunnable implements Runnable {
 
     private TaskRunnableStatus taskRunnableStatus = TaskRunnableStatus.CREATED;
 
-    public StreamTaskExecuteRunnable(TaskDefinition taskDefinition, TaskExecuteStartMessage taskExecuteStartMessage) {
+    public StreamTaskExecuteRunnable(TaskDefinition taskDefinition, TaskExecuteStartMessage taskExecuteStartMessage, StorageOperate storageOperate) {
         this.processService = SpringApplicationContext.getBean(ProcessService.class);
         this.masterConfig = SpringApplicationContext.getBean(MasterConfig.class);
         this.workerTaskDispatcher = SpringApplicationContext.getBean(WorkerTaskDispatcher.class);
@@ -127,6 +152,7 @@ public class StreamTaskExecuteRunnable implements Runnable {
         this.taskExecuteStartMessage = taskExecuteStartMessage;
         this.taskExecutionContextFactory = SpringApplicationContext.getBean(TaskExecutionContextFactory.class);
         this.defaultTaskExecuteRunnableFactory = SpringApplicationContext.getBean(DefaultTaskExecuteRunnableFactory.class);
+        this.storageOperate = storageOperate;
     }
 
     public TaskInstance getTaskInstance() {
@@ -139,29 +165,43 @@ public class StreamTaskExecuteRunnable implements Runnable {
         processService.updateTaskDefinitionResources(taskDefinition);
         taskInstance = newTaskInstance(taskDefinition);
         taskInstanceDao.upsertTaskInstance(taskInstance);
-
-        // add cache
-        streamTaskInstanceExecCacheManager.cache(taskInstance.getId(), this);
-
         List<ProcessTaskRelation> processTaskRelationList =
                 processTaskRelationMapper.queryByTaskCode(taskDefinition.getCode());
         long processDefinitionCode = processTaskRelationList.get(0).getProcessDefinitionCode();
         int processDefinitionVersion = processTaskRelationList.get(0).getProcessDefinitionVersion();
         processDefinition = processService.findProcessDefinition(processDefinitionCode, processDefinitionVersion);
 
+        taskExecutionContext = getTaskExecutionContext(taskInstance);
+        TaskInstanceLogHeader.printInitializeTaskContextHeader();
+        initializeTask();
+        // add cache
+        streamTaskInstanceExecCacheManager.cache(taskInstance.getId(), this);
+        TaskExecutionContextCacheManager.cacheTaskExecutionContext(taskExecutionContext);
+
+
         try {
-            DefaultTaskExecuteRunnable taskExecuteRunnable =
-                    defaultTaskExecuteRunnableFactory.createTaskExecuteRunnable(taskInstance);
-            workerTaskDispatcher.dispatchTask(taskExecuteRunnable);
+            // DefaultTaskExecuteRunnable taskExecuteRunnable =
+            //         defaultTaskExecuteRunnableFactory.createTaskExecuteRunnable(taskInstance);
+            // workerTaskDispatcher.dispatchTask(taskExecuteRunnable);
+            TaskInstanceLogHeader.printLoadTaskInstancePluginHeader();
+            beforeExecute();
+
+            TaskCallBack taskCallBack = new StreamTaskCallBack();
+            TaskInstanceLogHeader.printExecuteTaskHeader();
+            taskRunnableStatus = TaskRunnableStatus.STARTED;
+            executeTask(taskCallBack);
+
+            TaskInstanceLogHeader.printFinalizeTaskHeader();
+            afterExecute();
         } catch (Exception e) {
             // log.error("Master dispatch task to worker error, taskInstanceName: {}", taskInstance.getName(), e);
-            log.error(String.format("Master dispatch task to worker error, taskInstanceName: %s",taskInstance.getName()), e);
+            log.error(String.format("Master dispatch task to worker error, taskInstanceName: %s", taskInstance.getName()), e);
             taskInstance.setState(TaskExecutionStatus.FAILURE);
             taskInstanceDao.upsertTaskInstance(taskInstance);
             return;
         }
         // set started flag
-        taskRunnableStatus = TaskRunnableStatus.STARTED;
+
         log.info("Master success dispatch task to worker, taskInstanceName: {}, worker: {}", taskInstance.getId(),
                 taskInstance.getHost());
     }
@@ -341,10 +381,13 @@ public class StreamTaskExecuteRunnable implements Runnable {
         taskExecutionContext.setProjectCode(processDefinition.getProjectCode());
         taskExecutionContext.setProcessDefineCode(processDefinition.getCode());
         taskExecutionContext.setProcessDefineVersion(processDefinition.getVersion());
+        taskExecutionContext.setLogPath(LogUtils.getTaskInstanceLogFullPath(taskExecutionContext));
         // process instance id default 0
         taskExecutionContext.setProcessInstanceId(0);
         taskExecutionContextFactory.setDataQualityTaskExecutionContext(taskExecutionContext, taskInstance, tenantCode);
         taskExecutionContextFactory.setK8sTaskRelatedInfo(taskExecutionContext, taskInstance);
+
+        log.info("## taskExecutionContext is:{}", JSONUtils.toJsonString(taskExecutionContext));
         return taskExecutionContext;
     }
 
@@ -481,5 +524,85 @@ public class StreamTaskExecuteRunnable implements Runnable {
     private enum TaskRunnableStatus {
         CREATED, STARTED,
         ;
+    }
+
+    protected void initializeTask() {
+        log.info("Begin to initialize task");
+
+        long taskStartTime = System.currentTimeMillis();
+        taskExecutionContext.setStartTime(taskStartTime);
+        log.info("Set task startTime: {}", taskStartTime);
+
+        String taskAppId = String.format("%s_%s", taskExecutionContext.getProcessInstanceId(),
+                taskExecutionContext.getTaskInstanceId());
+        taskExecutionContext.setTaskAppId(taskAppId);
+        log.info("Set task appId: {}", taskAppId);
+
+        log.info("End initialize task {}", JSONUtils.toPrettyJsonString(taskExecutionContext));
+    }
+
+    protected void beforeExecute() {
+        taskExecutionContext.setCurrentExecutionStatus(TaskExecutionStatus.RUNNING_EXECUTION);
+
+        try {
+            // local execute path
+            String execLocalPath = FileUtils.getProcessExecDir(
+                    taskExecutionContext.getTenantCode(),
+                    taskExecutionContext.getProjectCode(),
+                    taskExecutionContext.getProcessDefineCode(),
+                    taskExecutionContext.getProcessDefineVersion(),
+                    taskExecutionContext.getProcessInstanceId(),
+                    taskExecutionContext.getTaskInstanceId());
+            log.info("## execLocalPath: {}", execLocalPath);
+
+            taskExecutionContext.setExecutePath(execLocalPath);
+            taskExecutionContext.setAppInfoPath(FileUtils.getAppInfoPath(execLocalPath));
+            Path executePath = Paths.get(taskExecutionContext.getExecutePath());
+            FileUtils.createDirectoryIfNotPresent(executePath);
+            if (OSUtils.isSudoEnable()) {
+                FileUtils.setFileOwner(executePath, taskExecutionContext.getTenantCode());
+            }
+        } catch (Throwable ex) {
+            throw new TaskException("Cannot create process execute dir", ex);
+        }
+        log.info("WorkflowInstanceExecDir: {} check successfully", taskExecutionContext.getExecutePath());
+
+        TaskUtils.downloadResourcesIfNeeded(storageOperate, taskExecutionContext);
+        log.info("Download resources: {} successfully", taskExecutionContext.getResources());
+
+        TaskUtils.downloadUpstreamFiles(taskExecutionContext, storageOperate);
+        log.info("Download upstream files: {} successfully",
+                TaskUtils.getFileLocalParams(taskExecutionContext, Direct.IN));
+
+        task = Optional.ofNullable(taskPluginManager.getTaskChannelMap().get(taskExecutionContext.getTaskType()))
+                .map(taskChannel -> taskChannel.createTask(taskExecutionContext))
+                .orElseThrow(() -> new TaskPluginException(taskExecutionContext.getTaskType()
+                        + " task plugin not found, please check the task type is correct."));
+        log.info("Task plugin instance: {} create successfully", taskExecutionContext.getTaskType());
+
+        // todo: remove the init method, this should initialize in constructor method
+        task.init();
+        log.info("Success initialized task plugin instance successfully");
+
+        task.getParameters().setVarPool(taskExecutionContext.getVarPool());
+        log.info("Set taskVarPool: {} successfully", taskExecutionContext.getVarPool());
+
+    }
+
+    protected void afterExecute() throws TaskException {
+        if (task == null) {
+            throw new TaskException("The current task instance is null");
+        }
+
+        streamTaskInstanceExecCacheManager.removeByTaskInstanceId(taskExecutionContext.getTaskInstanceId());
+        log.info("Remove the current task execute context from worker cache");
+
+    }
+
+    public void executeTask(TaskCallBack taskCallBack) throws TaskException {
+        if (task == null) {
+            throw new IllegalArgumentException("The task plugin instance is not initialized");
+        }
+        task.handle(taskCallBack);
     }
 }
