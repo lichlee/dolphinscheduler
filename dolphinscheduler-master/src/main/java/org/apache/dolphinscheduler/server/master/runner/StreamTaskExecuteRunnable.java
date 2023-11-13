@@ -163,7 +163,9 @@ public class StreamTaskExecuteRunnable implements Runnable {
     public void run() {
         // submit task
         processService.updateTaskDefinitionResources(taskDefinition);
+        log.info("## taskDefinition is:{}", JSONUtils.toJsonString(taskDefinition));
         taskInstance = newTaskInstance(taskDefinition);
+        log.info("## taskInstance is:{}", JSONUtils.toJsonString(taskInstance));
         taskInstanceDao.upsertTaskInstance(taskInstance);
         List<ProcessTaskRelation> processTaskRelationList =
                 processTaskRelationMapper.queryByTaskCode(taskDefinition.getCode());
@@ -384,6 +386,7 @@ public class StreamTaskExecuteRunnable implements Runnable {
         taskExecutionContext.setLogPath(LogUtils.getTaskInstanceLogFullPath(taskExecutionContext));
         // process instance id default 0
         taskExecutionContext.setProcessInstanceId(0);
+        taskExecutionContext.setResources(taskInstance.getResources());
         taskExecutionContextFactory.setDataQualityTaskExecutionContext(taskExecutionContext, taskInstance, tenantCode);
         taskExecutionContextFactory.setK8sTaskRelatedInfo(taskExecutionContext, taskInstance);
 
