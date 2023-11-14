@@ -45,7 +45,7 @@ public class TaskExecuteStartProcessor implements MasterRpcProcessor {
     @Autowired
     private StreamTaskExecuteThreadPool streamTaskExecuteThreadPool;
 
-    @Autowired(required = false)
+    @Autowired
     private StorageOperate storageOperate;
 
     @Autowired

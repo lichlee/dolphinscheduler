@@ -20,15 +20,19 @@ package org.apache.dolphinscheduler.server.master.runner;
 import static org.apache.dolphinscheduler.common.constants.Constants.DEFAULT_WORKER_GROUP;
 import static org.apache.dolphinscheduler.common.constants.Constants.SINGLE_SLASH;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.base.Strings;
 import lombok.SneakyThrows;
 import org.apache.commons.collections4.MapUtils;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.dolphinscheduler.common.constants.Constants;
 import org.apache.dolphinscheduler.common.constants.TenantConstants;
 import org.apache.dolphinscheduler.common.enums.Flag;
 import org.apache.dolphinscheduler.common.enums.Priority;
+import org.apache.dolphinscheduler.common.enums.TaskEventType;
 import org.apache.dolphinscheduler.common.thread.ThreadUtils;
+import org.apache.dolphinscheduler.common.utils.DateUtils;
 import org.apache.dolphinscheduler.common.utils.FileUtils;
 import org.apache.dolphinscheduler.common.utils.JSONUtils;
 import org.apache.dolphinscheduler.common.utils.OSUtils;
@@ -161,6 +165,7 @@ public class StreamTaskExecuteRunnable implements Runnable {
 
     @Override
     public void run() {
+        log.info("## storageOperate is null : {}", ObjectUtils.isEmpty(storageOperate));
         // submit task
         processService.updateTaskDefinitionResources(taskDefinition);
         log.info("## taskDefinition is:{}", JSONUtils.toJsonString(taskDefinition));
@@ -188,7 +193,9 @@ public class StreamTaskExecuteRunnable implements Runnable {
             TaskInstanceLogHeader.printLoadTaskInstancePluginHeader();
             beforeExecute();
 
-            TaskCallBack taskCallBack = new StreamTaskCallBack();
+            TaskCallBack taskCallBack = StreamTaskCallBack.builder()
+                    .taskExecutionContext(taskExecutionContext)
+                    .streamTaskExecuteRunnable(this).build();
             TaskInstanceLogHeader.printExecuteTaskHeader();
             taskRunnableStatus = TaskRunnableStatus.STARTED;
             executeTask(taskCallBack);
@@ -297,6 +304,13 @@ public class StreamTaskExecuteRunnable implements Runnable {
         // set task param
         taskInstance.setTaskParams(taskDefinition.getTaskParams());
 
+        ObjectNode paramMap = JSONUtils.parseObject(taskDefinition.getTaskParams());
+        if (paramMap.has("mainJar")) {
+            Map<String, String> resourcesMap = new HashMap<>();
+            resourcesMap.put(paramMap.get("mainJar").get("resourceName").asText(), "");
+            taskInstance.setResources(resourcesMap);
+        }
+
         // set task group and priority
         taskInstance.setTaskGroupId(taskDefinition.getTaskGroupId());
         taskInstance.setTaskGroupPriority(taskDefinition.getTaskGroupPriority());
@@ -359,7 +373,7 @@ public class StreamTaskExecuteRunnable implements Runnable {
             return null;
         }
 
-        taskInstance.setResources(getResourceFullNames(taskInstance));
+        // taskInstance.setResources(getResourceFullNames(taskInstance));
 
         TaskChannel taskChannel = taskPluginManager.getTaskChannel(taskInstance.getTaskType());
         ResourceParametersHelper resources = taskChannel.getResources(taskInstance.getTaskParams());
@@ -401,6 +415,7 @@ public class StreamTaskExecuteRunnable implements Runnable {
         Map<String, String> resourcesMap = new HashMap<>();
         AbstractParameters baseParam = taskPluginManager.getParameters(ParametersNode.builder()
                 .taskType(taskInstance.getTaskType()).taskParams(taskInstance.getTaskParams()).build());
+        log.info("## AbstractParameters is:{}", JSONUtils.toJsonString(baseParam));
         if (baseParam != null) {
             List<ResourceInfo> projectResourceFiles = baseParam.getResourceFilesList();
             if (CollectionUtils.isNotEmpty(projectResourceFiles)) {
@@ -450,7 +465,7 @@ public class StreamTaskExecuteRunnable implements Runnable {
         taskInstanceDao.updateById(taskInstance);
 
         // send ack
-        sendAckToWorker(taskEvent);
+        // sendAckToWorker(taskEvent);
 
         if (taskInstance.getState().isFinished()) {
             streamTaskInstanceExecCacheManager.removeByTaskInstanceId(taskInstance.getId());
@@ -560,8 +575,10 @@ public class StreamTaskExecuteRunnable implements Runnable {
 
             taskExecutionContext.setExecutePath(execLocalPath);
             taskExecutionContext.setAppInfoPath(FileUtils.getAppInfoPath(execLocalPath));
+
             Path executePath = Paths.get(taskExecutionContext.getExecutePath());
             FileUtils.createDirectoryIfNotPresent(executePath);
+
             if (OSUtils.isSudoEnable()) {
                 FileUtils.setFileOwner(executePath, taskExecutionContext.getTenantCode());
             }
@@ -597,8 +614,17 @@ public class StreamTaskExecuteRunnable implements Runnable {
             throw new TaskException("The current task instance is null");
         }
 
-        streamTaskInstanceExecCacheManager.removeByTaskInstanceId(taskExecutionContext.getTaskInstanceId());
-        log.info("Remove the current task execute context from worker cache");
+        TaskEvent taskEvent = TaskEvent.builder()
+                .taskInstanceId(taskExecutionContext.getTaskInstanceId())
+                .state(TaskExecutionStatus.RUNNING_EXECUTION)
+                .startTime(DateUtils.getCurrentDate())
+                .executePath(taskExecutionContext.getExecutePath())
+                .logPath(taskExecutionContext.getLogPath())
+                .event(TaskEventType.RUNNING)
+                .build();
+        addTaskEvent(taskEvent);
+        // streamTaskInstanceExecCacheManager.removeByTaskInstanceId(taskExecutionContext.getTaskInstanceId());
+        log.info("submit task success！");
 
     }
 
