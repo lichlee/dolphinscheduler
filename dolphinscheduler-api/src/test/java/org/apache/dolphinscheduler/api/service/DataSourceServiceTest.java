@@ -518,6 +518,51 @@ public class DataSourceServiceTest {
         }
     }
 
+    /**
+     * test check hive connection
+     */
+    @Test
+    public void testCheckHiveConnection() throws Exception {
+        DbType dataSourceType = DbType.HIVE;
+        String dataSourceName = "hive";
+        String dataSourceDesc = "test dataSource";
+
+        String jsonStr = "{\"type\":\"HIVE\",\"label\":\"HIVE/IMPALA\",\"name\":\"hive\",\"note\":\"\",\"host\":\"100.76.160.201,100.76.160.202,100.76.160.203\",\"port\":24002,\"principal\":\"hive/hadoop.hadoop.com@HADOOP.COM\",\"javaSecurityKrb5Conf\":\"/D:/Users/liz010/IdeaProjects/JavaProject/touch-app/krb/krb5.conf\",\"loginUserKeytabUsername\":\"u_cmhk_mdl_adm@HADOOP.COM\",\"loginUserKeytabPath\":\"/D:/Users/liz010/IdeaProjects/JavaProject/touch-app/krb/user.keytab\",\"mode\":\"\",\"userName\":\"u_cmhk_mdl_adm@HADOOP.COM\",\"password\":\"\",\"database\":\"ads_cmhk_mdl\",\"connectType\":\"\",\"other\":{\"auth\":\"KERBEROS\",\"serviceDiscoveryMode\":\"zooKeeper\",\"zooKeeperNamespace\":\"hiveserver2\",\"sasl.qop\":\"auth-conf\"},\"endpoint\":\"\",\"MSIClientId\":\"\",\"dbUser\":\"\",\"datawarehouse\":\"\"}";
+        BaseDataSourceParamDTO dataSourceParam = DataSourceUtils.buildDatasourceParam(jsonStr);
+
+        DataSourceUtils.checkDatasourceParam(dataSourceParam);
+        ConnectionParam connectionParams = DataSourceUtils.buildConnectionParams(dataSourceParam);
+        Result<Object> result = dataSourceService.checkConnection(dataSourceParam.getType(), connectionParams);
+
+        Assertions.assertEquals(Status.SUCCESS.getCode(), result.getCode().intValue());
+
+        // PostgreSQLDataSourceParamDTO postgreSqlDatasourceParam = new PostgreSQLDataSourceParamDTO();
+        // postgreSqlDatasourceParam.setDatabase(dataSourceName);
+        // postgreSqlDatasourceParam.setNote(dataSourceDesc);
+        // postgreSqlDatasourceParam.setHost("172.16.133.200");
+        // postgreSqlDatasourceParam.setPort(5432);
+        // postgreSqlDatasourceParam.setDatabase("dolphinscheduler");
+        // postgreSqlDatasourceParam.setUserName("postgres");
+        // postgreSqlDatasourceParam.setPassword("");
+        // ConnectionParam connectionParam = DataSourceUtils.buildConnectionParams(postgreSqlDatasourceParam);
+        //
+        // try (
+        //         MockedStatic<DataSourceUtils> mockedStaticDataSourceClientProvider =
+        //                 Mockito.mockStatic(DataSourceUtils.class)) {
+        //     DataSourceProcessor dataSourceProcessor = Mockito.mock(DataSourceProcessor.class);
+        //
+        //     Mockito.when(DataSourceUtils.getDatasourceProcessor(Mockito.any())).thenReturn(dataSourceProcessor);
+        //     Mockito.when(dataSourceProcessor.checkDataSourceConnectivity(Mockito.any())).thenReturn(false);
+        //
+        //     Result result = dataSourceService.checkConnection(dataSourceType, connectionParam);
+        //     Assertions.assertEquals(Status.CONNECTION_TEST_FAILURE.getCode(), result.getCode().intValue());
+        //
+        //     Mockito.when(dataSourceProcessor.checkDataSourceConnectivity(Mockito.any())).thenReturn(true);
+        //     result = dataSourceService.checkConnection(dataSourceType, connectionParam);
+        //     Assertions.assertEquals(Status.SUCCESS.getCode(), result.getCode().intValue());
+        // }
+    }
+
     @Test
     public void testGetDatabases() throws SQLException {
         DataSource dataSource = getOracleDataSource();

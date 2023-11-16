@@ -17,7 +17,7 @@
 
 package org.apache.dolphinscheduler.plugin.datasource.api.utils;
 
-import static org.apache.dolphinscheduler.common.constants.Constants.RESOURCE_STORAGE_TYPE;
+import static org.apache.dolphinscheduler.common.constants.Constants.*;
 import static org.apache.dolphinscheduler.plugin.task.api.TaskConstants.DATA_QUALITY_JAR_NAME;
 import static org.apache.dolphinscheduler.plugin.task.api.TaskConstants.HADOOP_SECURITY_AUTHENTICATION;
 import static org.apache.dolphinscheduler.plugin.task.api.TaskConstants.HADOOP_SECURITY_AUTHENTICATION_STARTUP_STATE;
@@ -65,7 +65,8 @@ public class CommonUtils {
         String resUploadStartupType = PropertyUtils.getUpperCaseString(RESOURCE_STORAGE_TYPE);
         ResUploadType resUploadType = ResUploadType.valueOf(resUploadStartupType);
         Boolean kerberosStartupState = PropertyUtils.getBoolean(HADOOP_SECURITY_AUTHENTICATION_STARTUP_STATE, false);
-        return resUploadType == ResUploadType.HDFS && kerberosStartupState;
+        // return resUploadType == ResUploadType.HDFS && kerberosStartupState;
+        return kerberosStartupState;
     }
 
     /**
@@ -100,10 +101,10 @@ public class CommonUtils {
     /**
      * load kerberos configuration
      *
-     * @param javaSecurityKrb5Conf javaSecurityKrb5Conf
+     * @param javaSecurityKrb5Conf    javaSecurityKrb5Conf
      * @param loginUserKeytabUsername loginUserKeytabUsername
-     * @param loginUserKeytabPath loginUserKeytabPath
-     * @param configuration configuration
+     * @param loginUserKeytabPath     loginUserKeytabPath
+     * @param configuration           configuration
      * @return load kerberos config return true
      * @throws IOException errors
      */
@@ -112,6 +113,14 @@ public class CommonUtils {
         if (CommonUtils.getKerberosStartupState()) {
             System.setProperty(JAVA_SECURITY_KRB5_CONF, StringUtils.defaultIfBlank(javaSecurityKrb5Conf,
                     PropertyUtils.getString(JAVA_SECURITY_KRB5_CONF_PATH)));
+
+            if (StringUtils.isNotBlank(PropertyUtils.getString(JAVA_SECURITY_KRB5_CONF_PATH))) {
+                System.setProperty(JAVA_SECURITY_AUTH_LOGIN_CONFIG,
+                        PropertyUtils.getString(JAVA_SECURITY_AUTH_LOGIN_CONFIG_PATH));
+            }
+
+            System.setProperty("zookeeper.server.principal", "zookeeper/HADOOP.COM");
+
             configuration.set(HADOOP_SECURITY_AUTHENTICATION, KERBEROS);
             UserGroupInformation.setConfiguration(configuration);
             UserGroupInformation.loginUserFromKeytab(

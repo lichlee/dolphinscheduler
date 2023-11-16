@@ -17,6 +17,7 @@
 
 package org.apache.dolphinscheduler.plugin.datasource.hive.param;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.dolphinscheduler.common.constants.Constants;
 import org.apache.dolphinscheduler.common.constants.DataSourceConstants;
 import org.apache.dolphinscheduler.common.utils.JSONUtils;
@@ -40,6 +41,8 @@ import java.util.List;
 import java.util.Map;
 
 import com.google.auto.service.AutoService;
+
+import static org.apache.dolphinscheduler.common.constants.Constants.HIVE_JDBC_AUTH_KEY;
 
 @AutoService(DataSourceProcessor.class)
 public class HiveDataSourceProcessor extends AbstractDataSourceProcessor {
@@ -83,7 +86,19 @@ public class HiveDataSourceProcessor extends AbstractDataSourceProcessor {
             address.append(String.format("%s:%s,", zkHost, hiveParam.getPort()));
         }
         address.deleteCharAt(address.length() - 1);
-        String jdbcUrl = address.toString() + "/" + hiveParam.getDatabase();
+        String jdbcUrl = address.toString() + "/" +
+                hiveParam.getDatabase();
+        List<String> params = new ArrayList<>();
+        if(StringUtils.isNotBlank(hiveParam.getPrincipal())){
+            params.add(StringUtils.join("principal=",hiveParam.getPrincipal()));
+        }
+        if(StringUtils.isNotBlank(hiveParam.getLoginUserKeytabUsername())){
+            params.add(StringUtils.join("user.principal=",hiveParam.getLoginUserKeytabUsername()));
+        }
+        if(StringUtils.isNotBlank(hiveParam.getLoginUserKeytabPath())){
+            params.add(StringUtils.join("user.keytab=",hiveParam.getLoginUserKeytabPath()));
+        }
+        jdbcUrl = StringUtils.join(jdbcUrl, ";", StringUtils.join(params,";"));
 
         HiveConnectionParam hiveConnectionParam = new HiveConnectionParam();
         hiveConnectionParam.setDatabase(hiveParam.getDatabase());
@@ -124,7 +139,7 @@ public class HiveDataSourceProcessor extends AbstractDataSourceProcessor {
         HiveConnectionParam hiveConnectionParam = (HiveConnectionParam) connectionParam;
         String jdbcUrl = hiveConnectionParam.getJdbcUrl();
         if (MapUtils.isNotEmpty(hiveConnectionParam.getOther())) {
-            return jdbcUrl + "?" + transformOther(hiveConnectionParam.getOther());
+            return jdbcUrl + ";" + transformOther(hiveConnectionParam.getOther());
         }
         return jdbcUrl;
     }

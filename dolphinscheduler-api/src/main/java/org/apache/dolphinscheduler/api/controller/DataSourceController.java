@@ -30,7 +30,9 @@ import static org.apache.dolphinscheduler.api.enums.Status.QUERY_DATASOURCE_ERRO
 import static org.apache.dolphinscheduler.api.enums.Status.UNAUTHORIZED_DATASOURCE;
 import static org.apache.dolphinscheduler.api.enums.Status.UPDATE_DATASOURCE_ERROR;
 import static org.apache.dolphinscheduler.api.enums.Status.VERIFY_DATASOURCE_NAME_FAILURE;
+import static org.apache.dolphinscheduler.plugin.task.api.TaskConstants.HADOOP_SECURITY_AUTHENTICATION_STARTUP_STATE;
 
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.dolphinscheduler.api.aspect.AccessLogAnnotation;
 import org.apache.dolphinscheduler.api.enums.Status;
 import org.apache.dolphinscheduler.api.exceptions.ApiException;
@@ -38,6 +40,7 @@ import org.apache.dolphinscheduler.api.service.DataSourceService;
 import org.apache.dolphinscheduler.api.utils.PageInfo;
 import org.apache.dolphinscheduler.api.utils.Result;
 import org.apache.dolphinscheduler.common.constants.Constants;
+import org.apache.dolphinscheduler.common.utils.PropertyUtils;
 import org.apache.dolphinscheduler.dao.entity.DataSource;
 import org.apache.dolphinscheduler.dao.entity.User;
 import org.apache.dolphinscheduler.plugin.datasource.api.datasource.BaseDataSourceParamDTO;
@@ -130,7 +133,7 @@ public class DataSourceController extends BaseController {
      * query data source detail
      *
      * @param loginUser login user
-     * @param id datasource id
+     * @param id        datasource id
      * @return data source detail
      */
     @Operation(summary = "queryDataSource", description = "QUERY_DATA_SOURCE_NOTES")
@@ -152,20 +155,20 @@ public class DataSourceController extends BaseController {
      * query datasource by type
      *
      * @param loginUser login user
-     * @param type data source type
+     * @param type      data source type
      * @return data source list page
      */
     @Operation(summary = "queryDataSourceList", description = "QUERY_DATA_SOURCE_LIST_BY_TYPE_NOTES")
     @Parameters({
-            @Parameter(name = "type", description = "DB_TYPE", required = true, schema = @Schema(implementation = DbType.class)),
+            @Parameter(name = "type", description = "DB_TYPE", schema = @Schema(implementation = DbType.class)),
     })
     @GetMapping(value = "/list")
     @ResponseStatus(HttpStatus.OK)
     @ApiException(QUERY_DATASOURCE_ERROR)
     @AccessLogAnnotation(ignoreRequestArgs = "loginUser")
     public Result<Object> queryDataSourceList(@Parameter(hidden = true) @RequestAttribute(value = Constants.SESSION_USER) User loginUser,
-                                              @RequestParam("type") DbType type) {
-        List<DataSource> datasourceList = dataSourceService.queryDataSourceList(loginUser, type.ordinal());
+                                              @RequestParam(name = "type", required = false) DbType type) {
+        List<DataSource> datasourceList = dataSourceService.queryDataSourceList(loginUser, ObjectUtils.isEmpty(type) ? null : type.ordinal());
         return Result.success(datasourceList);
     }
 
@@ -174,8 +177,8 @@ public class DataSourceController extends BaseController {
      *
      * @param loginUser login user
      * @param searchVal search value
-     * @param pageNo page number
-     * @param pageSize page size
+     * @param pageNo    page number
+     * @param pageSize  page size
      * @return data source list page
      */
     @Operation(summary = "queryDataSourceListPaging", description = "QUERY_DATA_SOURCE_LIST_PAGING_NOTES")
@@ -227,7 +230,7 @@ public class DataSourceController extends BaseController {
      * connection test
      *
      * @param loginUser login user
-     * @param id data source id
+     * @param id        data source id
      * @return connect result code
      */
     @Operation(summary = "connectionTest", description = "CONNECT_DATA_SOURCE_TEST_NOTES")
@@ -247,7 +250,7 @@ public class DataSourceController extends BaseController {
      * delete datasource by id
      *
      * @param loginUser login user
-     * @param id datasource id
+     * @param id        datasource id
      * @return delete result
      */
     @Operation(summary = "deleteDataSource", description = "DELETE_DATA_SOURCE_NOTES")
@@ -267,7 +270,7 @@ public class DataSourceController extends BaseController {
      * verify datasource name
      *
      * @param loginUser login user
-     * @param name data source name
+     * @param name      data source name
      * @return true if data source name not exists.otherwise return false
      */
     @Operation(summary = "verifyDataSourceName", description = "VERIFY_DATA_SOURCE_NOTES")
@@ -287,7 +290,7 @@ public class DataSourceController extends BaseController {
      * unauthorized datasource
      *
      * @param loginUser login user
-     * @param userId user id
+     * @param userId    user id
      * @return unauthed data source result code
      */
     @Operation(summary = "unauthDatasource", description = "UNAUTHORIZED_DATA_SOURCE_NOTES")
@@ -309,7 +312,7 @@ public class DataSourceController extends BaseController {
      * authorized datasource
      *
      * @param loginUser login user
-     * @param userId user id
+     * @param userId    user id
      * @return authorized result code
      */
     @Operation(summary = "authedDatasource", description = "AUTHORIZED_DATA_SOURCE_NOTES")
@@ -339,7 +342,8 @@ public class DataSourceController extends BaseController {
     @AccessLogAnnotation(ignoreRequestArgs = "loginUser")
     public Result<Object> getKerberosStartupState(@Parameter(hidden = true) @RequestAttribute(value = Constants.SESSION_USER) User loginUser) {
         // if upload resource is HDFS and kerberos startup is true , else false
-        return success(Status.SUCCESS.getMsg(), CommonUtils.getKerberosStartupState());
+        // return success(Status.SUCCESS.getMsg(), CommonUtils.getKerberosStartupState());
+        return success(Status.SUCCESS.getMsg(), PropertyUtils.getBoolean(HADOOP_SECURITY_AUTHENTICATION_STARTUP_STATE, false));
     }
 
     @Operation(summary = "tables", description = "GET_DATASOURCE_TABLES_NOTES")

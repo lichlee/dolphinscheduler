@@ -17,6 +17,7 @@
 
 package org.apache.dolphinscheduler.plugin.task.emr;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.dolphinscheduler.plugin.task.api.TaskConstants;
 import org.apache.dolphinscheduler.plugin.task.api.TaskException;
 import org.apache.dolphinscheduler.plugin.task.api.TaskExecutionContext;
@@ -45,6 +46,7 @@ import com.google.common.collect.Sets;
  *
  * @since v3.1.0
  */
+@Slf4j
 public class EmrAddStepsTask extends AbstractEmrTask {
 
     private String stepId;

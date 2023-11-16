@@ -17,6 +17,7 @@
 
 package org.apache.dolphinscheduler.plugin.datasource.hive.security;
 
+import static org.apache.dolphinscheduler.common.constants.Constants.JAVA_SECURITY_AUTH_LOGIN_CONFIG;
 import static org.apache.dolphinscheduler.common.constants.Constants.JAVA_SECURITY_KRB5_CONF;
 
 import org.apache.dolphinscheduler.common.constants.Constants;
@@ -97,10 +98,14 @@ public class UserGroupInformationFactory {
 
     private static UserGroupInformation createKerberosUser() {
         String krb5File = PropertyUtils.getString(Constants.JAVA_SECURITY_KRB5_CONF_PATH);
+        String jaas = PropertyUtils.getString(Constants.JAVA_SECURITY_AUTH_LOGIN_CONFIG_PATH);
         String keytab = PropertyUtils.getString(Constants.LOGIN_USER_KEY_TAB_PATH);
         String principal = PropertyUtils.getString(Constants.LOGIN_USER_KEY_TAB_USERNAME);
         if (StringUtils.isNotBlank(krb5File)) {
             System.setProperty(JAVA_SECURITY_KRB5_CONF, krb5File);
+        }
+        if (StringUtils.isNotBlank(jaas)) {
+            System.setProperty(JAVA_SECURITY_AUTH_LOGIN_CONFIG, jaas);
         }
 
         Configuration hadoopConf = new Configuration();
