@@ -86,11 +86,13 @@ public class DataSourceServiceImpl extends BaseServiceImpl implements DataSource
     private static final String[] TABLE_TYPES = new String[]{TABLE, VIEW};
     private static final String TABLE_NAME = "TABLE_NAME";
     private static final String COLUMN_NAME = "COLUMN_NAME";
+    private static final String TYPE_NAME = "TYPE_NAME";
+    private static final String COLUMN_SIZE = "COLUMN_SIZE";
 
     /**
      * create data source
      *
-     * @param loginUser login user
+     * @param loginUser       login user
      * @param datasourceParam datasource parameters
      * @return create result code
      */
@@ -148,7 +150,7 @@ public class DataSourceServiceImpl extends BaseServiceImpl implements DataSource
      * updateProcessInstance datasource
      *
      * @param loginUser login user
-     * @param id data source id
+     * @param id        data source id
      * @return update result code
      */
     @Override
@@ -251,8 +253,8 @@ public class DataSourceServiceImpl extends BaseServiceImpl implements DataSource
      *
      * @param loginUser login user
      * @param searchVal search value
-     * @param pageNo page number
-     * @param pageSize page size
+     * @param pageNo    page number
+     * @param pageSize  page size
      * @return data source list page
      */
     @Override
@@ -304,7 +306,7 @@ public class DataSourceServiceImpl extends BaseServiceImpl implements DataSource
      * query data resource list
      *
      * @param loginUser login user
-     * @param type data source type
+     * @param type      data source type
      * @return data source list page
      */
     @Override
@@ -350,7 +352,7 @@ public class DataSourceServiceImpl extends BaseServiceImpl implements DataSource
     /**
      * check connection
      *
-     * @param type data source type
+     * @param type            data source type
      * @param connectionParam connectionParam
      * @return true if connect successfully, otherwise false
      * @return true if connect successfully, otherwise false
@@ -391,7 +393,7 @@ public class DataSourceServiceImpl extends BaseServiceImpl implements DataSource
     /**
      * delete datasource
      *
-     * @param loginUser login user
+     * @param loginUser    login user
      * @param datasourceId data source id
      * @return delete result code
      */
@@ -427,7 +429,7 @@ public class DataSourceServiceImpl extends BaseServiceImpl implements DataSource
      * unauthorized datasource
      *
      * @param loginUser login user
-     * @param userId user id
+     * @param userId    user id
      * @return unauthed data source result code
      */
     @Override
@@ -461,7 +463,7 @@ public class DataSourceServiceImpl extends BaseServiceImpl implements DataSource
      * authorized datasource
      *
      * @param loginUser login user
-     * @param userId user id
+     * @param userId    user id
      * @return authorized result code
      */
     @Override
@@ -544,7 +546,7 @@ public class DataSourceServiceImpl extends BaseServiceImpl implements DataSource
 
         Connection connection =
                 DataSourceUtils.getConnection(dataSource.getType(), connectionParam);
-        List<String> columnList = new ArrayList<>();
+        List<ParamsOptions> columnList = new ArrayList<>();
         ResultSet rs = null;
 
         try {
@@ -562,7 +564,11 @@ public class DataSourceServiceImpl extends BaseServiceImpl implements DataSource
                 throw new ServiceException(Status.DATASOURCE_CONNECT_FAILED);
             }
             while (rs.next()) {
-                columnList.add(rs.getString(COLUMN_NAME));
+                columnList.add(ParamsOptions.builder()
+                        .value(rs.getString(COLUMN_NAME))
+                        .label(rs.getString(COLUMN_NAME))
+                        .type(rs.getString(TYPE_NAME))
+                        .size(rs.getString(COLUMN_SIZE)).build());
             }
         } catch (Exception e) {
             log.error("Get datasource table columns error, datasourceId:{}.", dataSource.getId(), e);
@@ -572,8 +578,7 @@ public class DataSourceServiceImpl extends BaseServiceImpl implements DataSource
             releaseConnection(connection);
         }
 
-        List<ParamsOptions> options = getParamsOptions(columnList);
-        return options;
+        return columnList;
     }
 
     @Override
@@ -632,7 +637,7 @@ public class DataSourceServiceImpl extends BaseServiceImpl implements DataSource
 
             for (String column : columnList) {
                 ParamsOptions childrenOption =
-                        new ParamsOptions(column, column, false);
+                        ParamsOptions.builder().label(column).value(column).disabled(false).build();
                 options.add(childrenOption);
             }
         }

@@ -61,6 +61,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
+import org.apache.dolphinscheduler.spi.params.base.ParamsOptions;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -377,6 +378,17 @@ public class DataSourceServiceTest {
         return dataSource;
     }
 
+    private DataSource getMysqlDataSource() {
+        DataSource dataSource = new DataSource();
+        dataSource.setName("test");
+        dataSource.setNote("Note");
+        dataSource.setType(DbType.MYSQL);
+        dataSource.setConnectionParams(
+                "{\"address\":\"jdbc:mysql://100.109.8.25:4308\",\"database\":\"smartbi\","
+                        + "\"jdbcUrl\":\"jdbc:mysql://100.109.8.25:4308/smartbi\",\"user\":\"smartbi\",\"password\":\"Smartbi@1234\"}");
+
+        return dataSource;
+    }
     private DataSource getOracleDataSource(int dataSourceId) {
         DataSource dataSource = new DataSource();
         dataSource.setId(dataSourceId);
@@ -494,12 +506,15 @@ public class DataSourceServiceTest {
         PostgreSQLDataSourceParamDTO postgreSqlDatasourceParam = new PostgreSQLDataSourceParamDTO();
         postgreSqlDatasourceParam.setDatabase(dataSourceName);
         postgreSqlDatasourceParam.setNote(dataSourceDesc);
-        postgreSqlDatasourceParam.setHost("172.16.133.200");
-        postgreSqlDatasourceParam.setPort(5432);
-        postgreSqlDatasourceParam.setDatabase("dolphinscheduler");
-        postgreSqlDatasourceParam.setUserName("postgres");
-        postgreSqlDatasourceParam.setPassword("");
+        postgreSqlDatasourceParam.setHost("100.109.8.170");
+        postgreSqlDatasourceParam.setPort(7810);
+        postgreSqlDatasourceParam.setDatabase("hudi");
+        postgreSqlDatasourceParam.setUserName("wedata_test1");
+        postgreSqlDatasourceParam.setPassword("Wedata@12345");
         ConnectionParam connectionParam = DataSourceUtils.buildConnectionParams(postgreSqlDatasourceParam);
+        Result<Object> result = dataSourceService.checkConnection(postgreSqlDatasourceParam.getType(), connectionParam);
+
+        Assertions.assertEquals(Status.SUCCESS.getCode(), result.getCode().intValue());
 
         try (
                 MockedStatic<DataSourceUtils> mockedStaticDataSourceClientProvider =
@@ -509,7 +524,7 @@ public class DataSourceServiceTest {
             Mockito.when(DataSourceUtils.getDatasourceProcessor(Mockito.any())).thenReturn(dataSourceProcessor);
             Mockito.when(dataSourceProcessor.checkDataSourceConnectivity(Mockito.any())).thenReturn(false);
 
-            Result result = dataSourceService.checkConnection(dataSourceType, connectionParam);
+            result = dataSourceService.checkConnection(dataSourceType, connectionParam);
             Assertions.assertEquals(Status.CONNECTION_TEST_FAILURE.getCode(), result.getCode().intValue());
 
             Mockito.when(dataSourceProcessor.checkDataSourceConnectivity(Mockito.any())).thenReturn(true);
@@ -600,5 +615,17 @@ public class DataSourceServiceTest {
         }
         connection.close();
         dataSourceUtils.close();
+    }
+
+    @Test
+    public void testGetTableColumns() throws SQLException {
+
+        DataSource dataSource = getMysqlDataSource();
+        int dataSourceId = 1;
+        dataSource.setId(dataSourceId);
+        Mockito.when(dataSourceMapper.selectById(dataSourceId)).thenReturn(dataSource);
+        List<ParamsOptions> ps = dataSourceService.getTableColumns(1, "smartbi","t_ds_datasource");
+        Assertions.assertNotNull(ps);
+
     }
 }

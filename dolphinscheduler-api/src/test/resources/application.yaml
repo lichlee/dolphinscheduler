@@ -19,10 +19,10 @@ spring:
   main:
     banner-mode: off
   datasource:
-    driver-class-name: org.h2.Driver
-    url: jdbc:h2:mem:dolphinscheduler;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=true;INIT=runscript from 'classpath:sql/dolphinscheduler_h2.sql'
-    username: sa
-    password: ""
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://100.109.8.25:4308/smartbi
+    username: smartbi
+    password: Smartbi@1234
 
 registry:
   type: zookeeper

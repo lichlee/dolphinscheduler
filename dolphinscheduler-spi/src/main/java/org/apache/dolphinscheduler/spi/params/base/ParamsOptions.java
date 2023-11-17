@@ -18,16 +18,22 @@
 package org.apache.dolphinscheduler.spi.params.base;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.Builder;
 
 /**
  * The options field in form-create`s json rule
  * Set radio, select, checkbox and other component option options
  */
+@Builder
 public class ParamsOptions {
 
     private String label;
 
     private Object value;
+
+    private String type;
+
+    private String size;
 
     /**
      * is can be select
@@ -40,6 +46,14 @@ public class ParamsOptions {
     public ParamsOptions(String label, Object value, boolean disabled) {
         this.label = label;
         this.value = value;
+        this.disabled = disabled;
+    }
+
+    public ParamsOptions(String label, Object value, String type, String size, boolean disabled) {
+        this.label = label;
+        this.value = value;
+        this.type = type;
+        this.size = size;
         this.disabled = disabled;
     }
 
@@ -61,6 +75,24 @@ public class ParamsOptions {
     public ParamsOptions setValue(Object value) {
         this.value = value;
         return this;
+    }
+
+    @JsonProperty("type")
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    @JsonProperty("size")
+    public String getSize() {
+        return size;
+    }
+
+    public void setSize(String size) {
+        this.size = size;
     }
 
     @JsonProperty("disabled")
