@@ -57,6 +57,7 @@ public class FlinkConstants {
     public static final String FLINK_PARALLELISM = "-p";
     public static final String FLINK_SHUTDOWN_ON_ATTACHED_EXIT = "-sae";
     public static final String FLINK_PYTHON = "-py";
+    public static final String FLINK_YARN_ID = "-yid";
     public static final String FLINK_SAVEPOINT = "savepoint";
     public static final String FLINK_METRICS = "metrics";
     public static final String FLINK_OVERVIEW = "overview";

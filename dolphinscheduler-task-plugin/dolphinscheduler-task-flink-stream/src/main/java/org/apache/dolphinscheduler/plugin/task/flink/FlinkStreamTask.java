@@ -17,6 +17,7 @@
 
 package org.apache.dolphinscheduler.plugin.task.flink;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.dolphinscheduler.common.utils.JSONUtils;
 import org.apache.dolphinscheduler.plugin.task.api.TaskConstants;
 import org.apache.dolphinscheduler.plugin.task.api.TaskException;
@@ -26,7 +27,10 @@ import org.apache.dolphinscheduler.plugin.task.api.stream.StreamTask;
 
 import org.apache.commons.collections4.CollectionUtils;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -85,12 +89,14 @@ public class FlinkStreamTask extends FlinkTask implements StreamTask {
 
     @Override
     public void cancelApplication() throws TaskException {
-        List<String> appIds = getApplicationIds();
-        if (CollectionUtils.isEmpty(appIds)) {
+
+        // List<String> appIds = getApplicationIds();
+
+        if (StringUtils.isEmpty(appIds)) {
             log.error("can not get appId, taskInstanceId:{}", taskExecutionContext.getTaskInstanceId());
             return;
         }
-        taskExecutionContext.setAppIds(String.join(TaskConstants.COMMA, appIds));
+        taskExecutionContext.setAppIds(appIds);
         List<String> args = FlinkArgsUtils.buildCancelCommandLine(taskExecutionContext);
 
         log.info("cancel application args:{}", args);
@@ -98,14 +104,30 @@ public class FlinkStreamTask extends FlinkTask implements StreamTask {
         ProcessBuilder processBuilder = new ProcessBuilder();
         processBuilder.command(args);
         try {
-            processBuilder.start();
-        } catch (IOException e) {
+            Process process = processBuilder.start();
+            // 获取进程的标准输出流
+            InputStream inputStream = process.getErrorStream();
+
+            // 将输入流转换为 BufferedReader 以便逐行读取
+            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+
+            String line;
+            while ((line = reader.readLine()) != null) {
+                log.info(line);
+            }
+
+            // 关闭流
+            reader.close();
+
+            int exitCode = process.waitFor();
+            log.info("cancel application process exitCode:{}", exitCode);
+        } catch (IOException | InterruptedException e) {
             throw new TaskException("cancel application error", e);
         }
     }
 
     @Override
-    public void savePoint() throws Exception {
+    public void savePoint() throws TaskException {
         List<String> appIds = getApplicationIds();
         if (CollectionUtils.isEmpty(appIds)) {
             log.warn("can not get appId, taskInstanceId:{}", taskExecutionContext.getTaskInstanceId());
@@ -118,6 +140,10 @@ public class FlinkStreamTask extends FlinkTask implements StreamTask {
 
         ProcessBuilder processBuilder = new ProcessBuilder();
         processBuilder.command(args);
-        processBuilder.start();
+        try {
+            processBuilder.start();
+        } catch (IOException e) {
+            throw new TaskException("savepoint application error", e);
+        }
     }
 }

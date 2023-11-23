@@ -17,6 +17,7 @@
 
 package org.apache.dolphinscheduler.plugin.task.flink;
 
+import org.apache.dolphinscheduler.plugin.task.api.TaskConstants;
 import org.apache.dolphinscheduler.plugin.task.api.TaskExecutionContext;
 import org.apache.dolphinscheduler.plugin.task.api.model.Property;
 import org.apache.dolphinscheduler.plugin.task.api.model.ResourceInfo;
@@ -25,10 +26,9 @@ import org.apache.dolphinscheduler.plugin.task.api.utils.ParameterUtils;
 
 import org.apache.commons.lang3.StringUtils;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * flink args utils
@@ -43,8 +43,9 @@ public class FlinkArgsUtils {
     private static final String FLINK_VERSION_BEFORE_1_10 = "<1.10";
     private static final String FLINK_VERSION_AFTER_OR_EQUALS_1_12 = ">=1.12";
     private static final String FLINK_VERSION_AFTER_OR_EQUALS_1_13 = ">=1.13";
+    private static final String TASK_INSTANCE_ID_KEY = "--taskInstanceId";
     /**
-     *  default flink deploy mode
+     * default flink deploy mode
      */
     public static final FlinkDeployMode DEFAULT_DEPLOY_MODE = FlinkDeployMode.CLUSTER;
 
@@ -65,6 +66,7 @@ public class FlinkArgsUtils {
 
     /**
      * build flink cancel command line
+     *
      * @param taskExecutionContext
      * @return
      */
@@ -72,12 +74,30 @@ public class FlinkArgsUtils {
         List<String> args = new ArrayList<>();
         args.add(FlinkConstants.FLINK_COMMAND);
         args.add(FlinkConstants.FLINK_CANCEL);
-        args.add(taskExecutionContext.getAppIds());
+        args.add(FlinkConstants.FLINK_YARN_ID);
+        String[] appIds = StringUtils.split(taskExecutionContext.getAppIds(), TaskConstants.COMMA);
+        if (appIds.length != 2) {
+            return Collections.emptyList();
+        }
+        String yarnId = "";
+        String jobId = "";
+        for (String id : appIds) {
+            Matcher matcher = Pattern.compile(TaskConstants.FLINK_APPLICATION_REGEX).matcher(id);
+            if (matcher.find()) {
+                jobId = matcher.group().substring(6);
+            } else {
+                yarnId = id;
+            }
+        }
+
+        args.add(yarnId);
+        args.add(jobId);
         return args;
     }
 
     /**
      * build flink savepoint command line, the savepoint folder should be set in flink conf
+     *
      * @return
      */
     public static List<String> buildSavePointCommandLine(TaskExecutionContext taskExecutionContext) {
@@ -296,6 +316,8 @@ public class FlinkArgsUtils {
             Map<String, Property> paramsMap = taskExecutionContext.getPrepareParamsMap();
             args.add(ParameterUtils.convertParameterPlaceholders(mainArgs, ParameterUtils.convert(paramsMap)));
         }
+        args.add(TASK_INSTANCE_ID_KEY);
+        args.add(String.valueOf(taskExecutionContext.getTaskInstanceId()));
 
         return args;
     }

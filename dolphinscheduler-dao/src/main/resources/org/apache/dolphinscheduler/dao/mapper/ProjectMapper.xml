@@ -207,6 +207,19 @@
         join t_ds_project p on p.code = pd.project_code
         where ti.id = #{taskInstanceId}
     </select>
+
+    <select id="queryProjectByStreamTaskInstanceId" resultType="org.apache.dolphinscheduler.dao.entity.Project">
+        select
+        <include refid="baseSqlV2">
+            <property name="alias" value="p"/>
+        </include>
+        from t_ds_task_instance ti
+        JOIN t_ds_process_task_relation pt ON pt.post_task_code = ti.task_code
+        join t_ds_process_definition pd on pt.process_definition_code = pd.code
+        join t_ds_project p on p.code = pd.project_code
+        where ti.id = #{taskInstanceId}
+    </select>
+
     <select id="queryAllWorkflowCounts" resultType="java.lang.Integer">
         SELECT COUNT(*) FROM t_ds_process_definition
         where 1=1

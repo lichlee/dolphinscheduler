@@ -17,7 +17,9 @@
 
 package org.apache.dolphinscheduler.plugin.task.api.stream;
 
+import org.apache.dolphinscheduler.plugin.task.api.TaskException;
+
 public interface StreamTask {
 
-    public void savePoint() throws Exception;
+    public void savePoint() throws TaskException;
 }

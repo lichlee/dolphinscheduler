@@ -63,6 +63,8 @@ public class LogUtils {
 
     private static final Pattern APPLICATION_REGEX = Pattern.compile(TaskConstants.YARN_APPLICATION_REGEX);
 
+    private static final Pattern FLINK_JOB_ID_REGEX = Pattern.compile(TaskConstants.FLINK_APPLICATION_REGEX);
+
     /**
      * Get application_id from log file.
      *
@@ -174,6 +176,13 @@ public class LogUtils {
                     String appId = matcher.group();
                     if (appIds.add(appId)) {
                         log.info("Find appId: {} from {}", appId, logPath);
+                    }
+                }
+                matcher = FLINK_JOB_ID_REGEX.matcher(line);
+                if (matcher.find()){
+                    String jobId = matcher.group();
+                    if (appIds.add(jobId)) {
+                        log.info("Find jobId: {} from {}", jobId, logPath);
                     }
                 }
             });

@@ -40,6 +40,8 @@ public class TaskExecuteStartMessage extends BaseMessage {
 
     private String executorName;
 
+    private String name;
+
     private long projectCode;
 
     private long taskDefinitionCode;

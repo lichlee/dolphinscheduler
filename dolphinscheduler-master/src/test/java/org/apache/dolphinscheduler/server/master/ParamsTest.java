@@ -17,7 +17,10 @@
 
 package org.apache.dolphinscheduler.server.master;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.dolphinscheduler.common.enums.CommandType;
+import org.apache.dolphinscheduler.common.utils.JSONUtils;
 import org.apache.dolphinscheduler.common.utils.placeholder.BusinessTimeUtils;
 import org.apache.dolphinscheduler.plugin.task.api.utils.ParameterUtils;
 
@@ -25,6 +28,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.Map;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,5 +65,24 @@ public class ParamsTest {
         command = ParameterUtils.convertParameterPlaceholders(command, timeParams);
         logger.info("complement data : {}", command);
 
+    }
+
+    @Test
+    public void paramTest(){
+        ObjectNode params = JSONUtils.parseObject("{\"appName\":\"FlinkOracle2HudiCDC\",\"deployMode\":\"cluster\",\"flinkVersion\":\"1.11\",\"initScript\":\"\",\"jobManagerMemory\":\"1G\",\"localParams\":[],\"mainClass\":\"com.cmft.Oracle2Hudi\",\"mainJar\":{\"id\":-1,\"res\":null,\"resourceName\":\"file:/dolphinscheduler/default/resources/FlinkCDCOracle2Hudi-1.0-SNAPSHOT.jar\"},\"others\":\"-yt /opt/hadoopclient/Flink/flink/ssl/\",\"parallelism\":1,\"programType\":\"JAVA\",\"rawScript\":\"\",\"resourceList\":[],\"slot\":1,\"taskManager\":2,\"taskManagerMemory\":\"1G\",\"yarnQueue\":\"\"}");
+        if (params.has("appName")) {
+            params.put("appName", "123");
+            Assertions.assertTrue(true);
+        }
+        System.out.println(JSONUtils.toJsonString(params));
+    }
+
+    @Test
+    public void paramTest2(){
+        Map<String, String> params = JSONUtils.toMap("{\"k1\":\"{\\\"k11\\\":\\\"v11\\\"}}\"}");
+        ObjectNode taskParams = JSONUtils.parseObject("{\"k1\":\"v1\"}");
+        taskParams.set("k2",JSONUtils.parseObject("{\"k11\":\"v11\"}"));
+
+        System.out.println(JSONUtils.toJsonString(taskParams));
     }
 }

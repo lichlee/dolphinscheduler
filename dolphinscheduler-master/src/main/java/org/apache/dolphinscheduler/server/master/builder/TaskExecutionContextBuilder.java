@@ -20,8 +20,10 @@ package org.apache.dolphinscheduler.server.master.builder;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.apache.dolphinscheduler.common.constants.Constants.SEC_2_MINUTES_TIME_UNIT;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.dolphinscheduler.common.enums.TimeoutFlag;
 import org.apache.dolphinscheduler.common.utils.DateUtils;
+import org.apache.dolphinscheduler.common.utils.JSONUtils;
 import org.apache.dolphinscheduler.dao.entity.ProcessDefinition;
 import org.apache.dolphinscheduler.dao.entity.ProcessInstance;
 import org.apache.dolphinscheduler.dao.entity.TaskDefinition;
@@ -39,7 +41,7 @@ import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- *  TaskExecutionContext builder
+ * TaskExecutionContext builder
  */
 
 @Slf4j
@@ -89,7 +91,11 @@ public class TaskExecutionContextBuilder {
                         Math.min(taskDefinition.getTimeout() * SEC_2_MINUTES_TIME_UNIT, Integer.MAX_VALUE));
             }
         }
-        taskExecutionContext.setTaskParams(taskDefinition.getTaskParams());
+        ObjectNode params = JSONUtils.parseObject(taskDefinition.getTaskParams());
+        if (params.has("appName")) {
+            params.put("appName", taskExecutionContext.getTaskName());
+        }
+        taskExecutionContext.setTaskParams(JSONUtils.toJsonString(params));
         return this;
     }
 

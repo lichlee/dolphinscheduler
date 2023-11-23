@@ -83,9 +83,9 @@ public class LoggerServiceImpl extends BaseServiceImpl implements LoggerService 
      * view log
      *
      * @param loginUser   login user
-     * @param taskInstId task instance id
+     * @param taskInstId  task instance id
      * @param skipLineNum skip line number
-     * @param limit limit
+     * @param limit       limit
      * @return log string data
      */
     @Override
@@ -102,7 +102,9 @@ public class LoggerServiceImpl extends BaseServiceImpl implements LoggerService 
             log.error("Host of task instance is null, taskInstanceId:{}.", taskInstId);
             return Result.error(Status.TASK_INSTANCE_HOST_IS_NULL);
         }
-        Project project = projectMapper.queryProjectByTaskInstanceId(taskInstId);
+        Project project = StringUtils.equals(taskInstance.getTaskType(), "FLINK_STREAM") ?
+                projectMapper.queryProjectByStreamTaskInstanceId(taskInstId) :
+                projectMapper.queryProjectByTaskInstanceId(taskInstId);
         projectService.checkProjectAndAuthThrowException(loginUser, project, VIEW_LOG);
         Result<ResponseTaskLog> result = new Result<>(Status.SUCCESS.getCode(), Status.SUCCESS.getMsg());
         String log = queryLog(taskInstance, skipLineNum, limit);
@@ -114,7 +116,7 @@ public class LoggerServiceImpl extends BaseServiceImpl implements LoggerService 
     /**
      * get log size
      *
-     * @param loginUser   login user
+     * @param loginUser  login user
      * @param taskInstId task instance id
      * @return log byte array
      */
@@ -197,9 +199,9 @@ public class LoggerServiceImpl extends BaseServiceImpl implements LoggerService 
     /**
      * query log
      *
-     * @param taskInstance  task instance
-     * @param skipLineNum skip line number
-     * @param limit       limit
+     * @param taskInstance task instance
+     * @param skipLineNum  skip line number
+     * @param limit        limit
      * @return log string data
      */
     private String queryLog(TaskInstance taskInstance, int skipLineNum, int limit) {

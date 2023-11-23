@@ -17,15 +17,20 @@
 
 package org.apache.dolphinscheduler.server.master.processor;
 
+import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import org.apache.dolphinscheduler.common.utils.JSONUtils;
+import org.apache.dolphinscheduler.plugin.task.api.TaskException;
 import org.apache.dolphinscheduler.plugin.task.api.TaskExecutionContext;
 import org.apache.dolphinscheduler.plugin.task.api.utils.LogUtils;
 import org.apache.dolphinscheduler.remote.command.Message;
 import org.apache.dolphinscheduler.remote.command.MessageType;
 import org.apache.dolphinscheduler.remote.command.task.TaskKillRequest;
 import org.apache.dolphinscheduler.remote.processor.MasterRpcProcessor;
+import org.apache.dolphinscheduler.server.master.cache.StreamTaskInstanceExecCacheManager;
 import org.apache.dolphinscheduler.server.master.exception.MasterTaskExecuteException;
 import org.apache.dolphinscheduler.server.master.runner.MasterDelayTaskExecuteRunnableDelayQueue;
+import org.apache.dolphinscheduler.server.master.runner.StreamTaskExecuteRunnable;
 import org.apache.dolphinscheduler.server.master.runner.execute.MasterTaskExecuteRunnable;
 import org.apache.dolphinscheduler.server.master.runner.execute.MasterTaskExecuteRunnableHolder;
 import org.apache.dolphinscheduler.server.master.runner.execute.MasterTaskExecutionContextHolder;
@@ -39,10 +44,12 @@ import io.netty.channel.Channel;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class MasterTaskKillProcessor implements MasterRpcProcessor {
 
-    @Autowired
-    private MasterDelayTaskExecuteRunnableDelayQueue masterDelayTaskExecuteRunnableDelayQueue;
+    private final MasterDelayTaskExecuteRunnableDelayQueue masterDelayTaskExecuteRunnableDelayQueue;
+
+    private final StreamTaskInstanceExecCacheManager streamTaskInstanceExecCacheManager;
 
     @Override
     public void process(Channel channel, Message message) {
@@ -58,19 +65,33 @@ public class MasterTaskKillProcessor implements MasterRpcProcessor {
             }
             MasterTaskExecuteRunnable masterTaskExecuteRunnable =
                     MasterTaskExecuteRunnableHolder.getMasterTaskExecuteRunnable(taskInstanceId);
-            if (masterTaskExecuteRunnable == null) {
+            StreamTaskExecuteRunnable streamTaskExecuteRunnable =
+                    streamTaskInstanceExecCacheManager.getByTaskInstanceId(taskInstanceId);
+            if (masterTaskExecuteRunnable == null && streamTaskExecuteRunnable == null) {
                 log.error("Cannot find the MasterTaskExecuteRunnable, this task may already been killed");
                 return;
             }
-            try {
-                masterTaskExecuteRunnable.cancelTask();
-                masterDelayTaskExecuteRunnableDelayQueue
-                        .removeMasterDelayTaskExecuteRunnable(masterTaskExecuteRunnable);
-            } catch (MasterTaskExecuteException e) {
-                log.error("Cancel MasterTaskExecuteRunnable failed ", e);
-            } finally {
-                MasterTaskExecutionContextHolder.removeTaskExecutionContext(taskInstanceId);
-                MasterTaskExecuteRunnableHolder.removeMasterTaskExecuteRunnable(taskInstanceId);
+            if (masterTaskExecuteRunnable != null) {
+                try {
+                    masterTaskExecuteRunnable.cancelTask();
+                    masterDelayTaskExecuteRunnableDelayQueue
+                            .removeMasterDelayTaskExecuteRunnable(masterTaskExecuteRunnable);
+                } catch (MasterTaskExecuteException e) {
+                    log.error("Cancel MasterTaskExecuteRunnable failed ", e);
+                } finally {
+                    MasterTaskExecutionContextHolder.removeTaskExecutionContext(taskInstanceId);
+                    MasterTaskExecuteRunnableHolder.removeMasterTaskExecuteRunnable(taskInstanceId);
+                }
+            }
+            if (streamTaskExecuteRunnable != null) {
+                try {
+                    streamTaskExecuteRunnable.cancelTask();
+
+                } catch (TaskException e) {
+                    log.error("Cancel streamTaskExecuteRunnable failed ", e);
+                } finally {
+                    MasterTaskExecutionContextHolder.removeTaskExecutionContext(taskInstanceId);
+                }
             }
         }
     }

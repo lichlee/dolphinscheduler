@@ -564,11 +564,11 @@ public class DataSourceServiceImpl extends BaseServiceImpl implements DataSource
                 throw new ServiceException(Status.DATASOURCE_CONNECT_FAILED);
             }
             while (rs.next()) {
-                columnList.add(ParamsOptions.builder()
-                        .value(rs.getString(COLUMN_NAME))
-                        .label(rs.getString(COLUMN_NAME))
-                        .type(rs.getString(TYPE_NAME))
-                        .size(rs.getString(COLUMN_SIZE)).build());
+                columnList.add(new ParamsOptions(rs.getString(COLUMN_NAME),
+                        rs.getString(COLUMN_NAME),
+                        rs.getString(TYPE_NAME),
+                        rs.getString(COLUMN_SIZE),
+                        false));
             }
         } catch (Exception e) {
             log.error("Get datasource table columns error, datasourceId:{}.", dataSource.getId(), e);
@@ -636,9 +636,7 @@ public class DataSourceServiceImpl extends BaseServiceImpl implements DataSource
             options = new ArrayList<>();
 
             for (String column : columnList) {
-                ParamsOptions childrenOption =
-                        ParamsOptions.builder().label(column).value(column).disabled(false).build();
-                options.add(childrenOption);
+                options.add(new ParamsOptions(column, column, false));
             }
         }
         return options;

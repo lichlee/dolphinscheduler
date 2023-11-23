@@ -18,13 +18,11 @@
 package org.apache.dolphinscheduler.spi.params.base;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Builder;
 
 /**
  * The options field in form-create`s json rule
  * Set radio, select, checkbox and other component option options
  */
-@Builder
 public class ParamsOptions {
 
     private String label;

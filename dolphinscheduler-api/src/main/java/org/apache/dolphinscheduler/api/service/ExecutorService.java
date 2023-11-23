@@ -165,7 +165,9 @@ public interface ExecutorService {
      * @return execute process instance code
      */
     Map<String, Object> execStreamTaskInstance(User loginUser, long projectCode,
-                                               long taskDefinitionCode, int taskDefinitionVersion,
+                                               String name,
+                                               long taskDefinitionCode,
+                                               int taskDefinitionVersion,
                                                int warningGroupId,
                                                String workerGroup,
                                                String tenantCode,

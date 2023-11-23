@@ -450,6 +450,7 @@ public class ExecutorController extends BaseController {
                                           @Parameter(name = "projectCode", description = "PROJECT_CODE", required = true) @PathVariable long projectCode,
                                           @Parameter(name = "code", description = "TASK_CODE", required = true) @PathVariable long code,
                                           @RequestParam(value = "version", required = true) int version,
+                                          @RequestParam(value = "name", required = false) String name,
                                           @RequestParam(value = "warningGroupId", required = false, defaultValue = "0") Integer warningGroupId,
                                           @RequestParam(value = "workerGroup", required = false, defaultValue = "default") String workerGroup,
                                           @RequestParam(value = "tenantCode", required = false, defaultValue = "default") String tenantCode,
@@ -464,7 +465,7 @@ public class ExecutorController extends BaseController {
 
         log.info("Start to execute stream task instance, projectCode:{}, taskDefinitionCode:{}, taskVersion:{}.",
                 projectCode, code, version);
-        Map<String, Object> result = execService.execStreamTaskInstance(loginUser, projectCode, code, version,
+        Map<String, Object> result = execService.execStreamTaskInstance(loginUser, projectCode, name, code, version,
                 warningGroupId, workerGroup, tenantCode, environmentCode, startParamMap, dryRun);
         return returnDataList(result);
     }

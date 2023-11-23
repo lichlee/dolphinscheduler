@@ -1167,7 +1167,9 @@ public class ExecutorServiceImpl extends BaseServiceImpl implements ExecutorServ
     }
 
     @Override
-    public Map<String, Object> execStreamTaskInstance(User loginUser, long projectCode, long taskDefinitionCode,
+    public Map<String, Object> execStreamTaskInstance(User loginUser, long projectCode,
+                                                      String name,
+                                                      long taskDefinitionCode,
                                                       int taskDefinitionVersion,
                                                       int warningGroupId, String workerGroup, String tenantCode,
                                                       Long environmentCode,
@@ -1188,6 +1190,7 @@ public class ExecutorServiceImpl extends BaseServiceImpl implements ExecutorServ
         TaskExecuteStartMessage taskExecuteStartMessage = new TaskExecuteStartMessage();
         taskExecuteStartMessage.setExecutorId(loginUser.getId());
         taskExecuteStartMessage.setExecutorName(loginUser.getUserName());
+        taskExecuteStartMessage.setName(name);
         taskExecuteStartMessage.setProjectCode(projectCode);
         taskExecuteStartMessage.setTaskDefinitionCode(taskDefinitionCode);
         taskExecuteStartMessage.setTaskDefinitionVersion(taskDefinitionVersion);

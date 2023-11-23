@@ -20,6 +20,7 @@ package org.apache.dolphinscheduler.server.master.runner;
 import static org.apache.dolphinscheduler.common.constants.Constants.DEFAULT_WORKER_GROUP;
 import static org.apache.dolphinscheduler.common.constants.Constants.SINGLE_SLASH;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.base.Strings;
 import lombok.SneakyThrows;
@@ -54,6 +55,7 @@ import org.apache.dolphinscheduler.plugin.task.api.model.ResourceInfo;
 import org.apache.dolphinscheduler.plugin.task.api.parameters.AbstractParameters;
 import org.apache.dolphinscheduler.plugin.task.api.parameters.ParametersNode;
 import org.apache.dolphinscheduler.plugin.task.api.parameters.resource.ResourceParametersHelper;
+import org.apache.dolphinscheduler.plugin.task.api.stream.StreamTask;
 import org.apache.dolphinscheduler.plugin.task.api.utils.LogUtils;
 import org.apache.dolphinscheduler.plugin.task.api.utils.ParameterUtils;
 import org.apache.dolphinscheduler.remote.command.MessageType;
@@ -71,6 +73,7 @@ import org.apache.dolphinscheduler.server.master.processor.queue.TaskEvent;
 import org.apache.dolphinscheduler.server.master.runner.dispatcher.WorkerTaskDispatcher;
 import org.apache.dolphinscheduler.server.master.runner.execute.DefaultTaskExecuteRunnable;
 import org.apache.dolphinscheduler.server.master.runner.execute.DefaultTaskExecuteRunnableFactory;
+import org.apache.dolphinscheduler.server.master.runner.execute.MasterTaskExecutionContextHolder;
 import org.apache.dolphinscheduler.server.master.runner.execute.TaskExecutionContextFactory;
 import org.apache.dolphinscheduler.server.master.utils.TaskUtils;
 import org.apache.dolphinscheduler.service.bean.SpringApplicationContext;
@@ -246,13 +249,11 @@ public class StreamTaskExecuteRunnable implements Runnable {
         TaskEvent taskEvent = null;
         while (!this.taskEvents.isEmpty()) {
             try {
-                taskEvent = this.taskEvents.peek();
+                taskEvent = this.taskEvents.poll();
                 LogUtils.setTaskInstanceIdMDC(taskEvent.getTaskInstanceId());
 
                 log.info("Begin to handle state event, {}", taskEvent);
-                if (this.handleTaskEvent(taskEvent)) {
-                    this.taskEvents.remove(taskEvent);
-                }
+                this.handleTaskEvent(taskEvent);
             } catch (StateEventHandleError stateEventHandleError) {
                 log.error("State event handle error, will remove this event: {}", taskEvent, stateEventHandleError);
                 this.taskEvents.remove(taskEvent);
@@ -279,7 +280,7 @@ public class StreamTaskExecuteRunnable implements Runnable {
         TaskInstance taskInstance = new TaskInstance();
         taskInstance.setTaskCode(taskDefinition.getCode());
         taskInstance.setTaskDefinitionVersion(taskDefinition.getVersion());
-        taskInstance.setName(taskDefinition.getName());
+        taskInstance.setName(StringUtils.isNotBlank(taskExecuteStartMessage.getName()) ? taskExecuteStartMessage.getName() : taskDefinition.getName());
         // task instance state
         taskInstance.setState(TaskExecutionStatus.SUBMITTED_SUCCESS);
         // set process instance id to 0
@@ -301,8 +302,12 @@ public class StreamTaskExecuteRunnable implements Runnable {
         taskInstance.setMaxRetryTimes(taskDefinition.getFailRetryTimes());
         taskInstance.setRetryInterval(taskDefinition.getFailRetryInterval());
 
+        ObjectNode taskParams = JSONUtils.parseObject(taskDefinition.getTaskParams());
+        if (MapUtils.isNotEmpty(taskExecuteStartMessage.getStartParams()) && taskExecuteStartMessage.getStartParams().containsKey("runArgs")) {
+            taskParams.set("runArgs", JSONUtils.parseObject(taskExecuteStartMessage.getStartParams().get("runArgs")));
+        }
         // set task param
-        taskInstance.setTaskParams(taskDefinition.getTaskParams());
+        taskInstance.setTaskParams(JSONUtils.toJsonString(taskParams));
 
         ObjectNode paramMap = JSONUtils.parseObject(taskDefinition.getTaskParams());
         if (paramMap.has("mainJar")) {
@@ -451,12 +456,16 @@ public class StreamTaskExecuteRunnable implements Runnable {
         if (taskInstance.getState() == null) {
             throw new StateEventHandleError("Task state event handle error due to task state is null");
         }
-
-        taskInstance.setStartTime(taskEvent.getStartTime());
+        if (taskEvent.getState().equals(TaskExecutionStatus.KILL)) {
+            taskInstance.setEndTime(taskEvent.getEndTime());
+        } else {
+            taskInstance.setStartTime(taskEvent.getStartTime());
+        }
         taskInstance.setHost(taskEvent.getWorkerAddress());
         taskInstance.setLogPath(taskEvent.getLogPath());
         taskInstance.setExecutePath(taskEvent.getExecutePath());
         taskInstance.setPid(taskEvent.getProcessId());
+        taskInstance.setHost(taskEvent.getWorkerAddress());
         taskInstance.setAppLink(taskEvent.getAppIds());
         taskInstance.setState(taskEvent.getState());
         taskInstance.setEndTime(taskEvent.getEndTime());
@@ -467,7 +476,7 @@ public class StreamTaskExecuteRunnable implements Runnable {
         // send ack
         // sendAckToWorker(taskEvent);
 
-        if (taskInstance.getState().isFinished()) {
+        if (taskEvent.getState().equals(TaskExecutionStatus.KILL)) {
             streamTaskInstanceExecCacheManager.removeByTaskInstanceId(taskInstance.getId());
             log.info("The stream task instance is finish, taskInstanceId:{}, state:{}", taskInstance.getId(),
                     taskEvent.getState());
@@ -621,9 +630,14 @@ public class StreamTaskExecuteRunnable implements Runnable {
                 .executePath(taskExecutionContext.getExecutePath())
                 .logPath(taskExecutionContext.getLogPath())
                 .event(TaskEventType.RUNNING)
+                .workerAddress(taskExecutionContext.getWorkflowInstanceHost())
+                .appIds(task.getAppIds())
+                .processId(task.getProcessId())
                 .build();
         addTaskEvent(taskEvent);
+        taskExecutionContext.setAppIds(task.getAppIds());
         // streamTaskInstanceExecCacheManager.removeByTaskInstanceId(taskExecutionContext.getTaskInstanceId());
+        MasterTaskExecutionContextHolder.putTaskExecutionContext(taskExecutionContext);
         log.info("submit task success！");
 
     }
@@ -633,5 +647,42 @@ public class StreamTaskExecuteRunnable implements Runnable {
             throw new IllegalArgumentException("The task plugin instance is not initialized");
         }
         task.handle(taskCallBack);
+    }
+
+    public void savePoint() throws TaskException {
+        assert task != null;
+        log.info("## Start cancel flink stream task, taskApps is : {}", task.getAppIds());
+
+
+        if (task instanceof StreamTask) {
+            ((StreamTask) task).savePoint();
+        }
+
+        log.info("## Flink stream task {} is savepoint success", task.getAppIds());
+    }
+
+    public void cancelTask() throws TaskException {
+        assert task != null;
+        log.info("## Start cancel flink stream task, taskApps is : {}", task.getAppIds());
+
+        task.cancel();
+        addTaskEvent(TaskExecutionStatus.KILL);
+
+        log.info("## Flink stream task {} is canceled success", task.getAppIds());
+    }
+
+    private void addTaskEvent(TaskExecutionStatus status) {
+        addTaskEvent(TaskEvent.builder()
+                .taskInstanceId(taskExecutionContext.getTaskInstanceId())
+                .state(status)
+                .startTime(DateUtils.getCurrentDate())
+                .endTime(DateUtils.getCurrentDate())
+                .executePath(taskExecutionContext.getExecutePath())
+                .logPath(taskExecutionContext.getLogPath())
+                .event(TaskEventType.RESULT)
+                .workerAddress(taskExecutionContext.getWorkflowInstanceHost())
+                .appIds(task.getAppIds())
+                .processId(task.getProcessId())
+                .build());
     }
 }

@@ -152,6 +152,13 @@ public interface ProjectMapper extends BaseMapper<Project> {
     Project queryProjectByTaskInstanceId(@Param("taskInstanceId") int taskInstanceId);
 
     /**
+     * query the project by task instance id
+     * @param taskInstanceId
+     * @return project
+     */
+    Project queryProjectByStreamTaskInstanceId(@Param("taskInstanceId") int taskInstanceId);
+
+    /**
      * query all workflow count
      * @param projectsCodes projectsCodes
      * @return workflow count

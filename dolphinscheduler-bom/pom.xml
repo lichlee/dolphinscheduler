@@ -15,7 +15,8 @@
   ~ See the License for the specific language governing permissions and
   ~ limitations under the License.
   -->
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>org.apache.dolphinscheduler</groupId>
@@ -52,7 +53,7 @@
         <protostuff.version>1.7.2</protostuff.version>
         <byte-buddy.version>1.9.16</byte-buddy.version>
         <logback.version>1.2.11</logback.version>
-<!--        <hadoop.version>3.2.4</hadoop.version>-->
+        <!--        <hadoop.version>3.2.4</hadoop.version>-->
         <hadoop.version>3.3.1-h0.cbu.mrs.320.r11</hadoop.version>
         <hive.version>3.1.0-h0.cbu.mrs.320.r11</hive.version>
         <cron-utils.version>9.1.6</cron-utils.version>
@@ -923,9 +924,21 @@
     </dependencyManagement>
     <profiles>
         <profile>
-            <id>zk-3.8</id>
+            <id>zk-3.6-hw</id>
             <activation>
                 <activeByDefault>true</activeByDefault>
+            </activation>
+            <properties>
+                <zookeeper.version>3.6.3-h0.cbu.mrs.320.r11</zookeeper.version>
+                <curator.version>5.3.0</curator.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>zk-3.8</id>
+            <activation>
+                <property>
+                    <name>zk-3.6-hw</name>
+                </property>
             </activation>
             <properties>
                 <zookeeper.version>3.8.0</zookeeper.version>
