@@ -879,6 +879,7 @@ public final class Constants {
      */
     public static final String DATABASES_QUERY = "show databases";
     public static final String DATABASES_QUERY_PG = "SELECT datname FROM pg_database";
+    public static final String DATABASES_QUERY_ORACLE = "SELECT username FROM all_users";
 
     /**
      * K8S sensitive param

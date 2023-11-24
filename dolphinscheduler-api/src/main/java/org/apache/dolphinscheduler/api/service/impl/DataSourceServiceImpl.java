@@ -45,10 +45,7 @@ import org.apache.dolphinscheduler.spi.params.base.ParamsOptions;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 
-import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -472,6 +469,16 @@ public class DataSourceServiceImpl extends BaseServiceImpl implements DataSource
         return authedDatasourceList;
     }
 
+    private void setRole(DataSource dataSource, Connection connection) throws SQLException {
+        if (dataSource.getType() == DbType.HIVE) {
+            Statement statement = connection.createStatement();
+
+            // 执行 SET ROLE 语句
+            String setRoleQuery = "SET ROLE admin";
+            statement.execute(setRoleQuery);
+        }
+    }
+
     @Override
     public List<ParamsOptions> getTables(Integer datasourceId, String database) {
         DataSource dataSource = dataSourceMapper.selectById(datasourceId);
@@ -481,7 +488,7 @@ public class DataSourceServiceImpl extends BaseServiceImpl implements DataSource
                 (BaseConnectionParam) DataSourceUtils.buildConnectionParams(
                         dataSource.getType(),
                         dataSource.getConnectionParams());
-
+        connectionParam.setDatabase(database);
         if (null == connectionParam) {
             throw new ServiceException(Status.DATASOURCE_CONNECT_FAILED);
         }
@@ -494,6 +501,9 @@ public class DataSourceServiceImpl extends BaseServiceImpl implements DataSource
 
             if (null == connection) {
                 throw new ServiceException(Status.DATASOURCE_CONNECT_FAILED);
+            }
+            if (dataSource.getType() == DbType.HIVE) {
+                setRole(dataSource, connection);
             }
 
             DatabaseMetaData metaData = connection.getMetaData();
@@ -547,11 +557,19 @@ public class DataSourceServiceImpl extends BaseServiceImpl implements DataSource
         Connection connection =
                 DataSourceUtils.getConnection(dataSource.getType(), connectionParam);
         List<ParamsOptions> columnList = new ArrayList<>();
+        Set<String> pks = new HashSet<>();
         ResultSet rs = null;
-
+        ResultSet primaryKeyResultSet = null;
         try {
             if (null == connection) {
                 throw new ServiceException(Status.DATASOURCE_CONNECT_FAILED);
+            }
+            if (dataSource.getType() == DbType.HIVE) {
+                Statement statement = connection.createStatement();
+
+                // 执行 SET ROLE 语句
+                String setRoleQuery = "SET ROLE admin";
+                statement.execute(setRoleQuery);
             }
 
             DatabaseMetaData metaData = connection.getMetaData();
@@ -559,16 +577,37 @@ public class DataSourceServiceImpl extends BaseServiceImpl implements DataSource
             if (dataSource.getType() == DbType.ORACLE) {
                 database = null;
             }
+
+            log.info("## database: {}, tableName: {}", database, tableName);
             rs = metaData.getColumns(database, null, tableName, "%");
+
+            try {
+                primaryKeyResultSet = metaData.getPrimaryKeys(database, null, tableName);
+
+                if (primaryKeyResultSet != null) {
+                    while (primaryKeyResultSet.next()) {
+                        pks.add(primaryKeyResultSet.getString(COLUMN_NAME));
+                    }
+                }
+            } catch (Exception e) {
+                closeResult(primaryKeyResultSet);
+            }
+
             if (rs == null) {
                 throw new ServiceException(Status.DATASOURCE_CONNECT_FAILED);
             }
             while (rs.next()) {
+                if (dataSource.getType() == DbType.HIVE &&
+                        columnList.size() > 0 &&
+                        StringUtils.equals(columnList.get(0).getValue().toString(), rs.getString(COLUMN_NAME))) {
+                    break;
+                }
+
                 columnList.add(new ParamsOptions(rs.getString(COLUMN_NAME),
                         rs.getString(COLUMN_NAME),
                         rs.getString(TYPE_NAME),
                         rs.getString(COLUMN_SIZE),
-                        false));
+                        false).PrimaryKey(pks.contains(rs.getString(COLUMN_NAME))));
             }
         } catch (Exception e) {
             log.error("Get datasource table columns error, datasourceId:{}.", dataSource.getId(), e);
@@ -608,11 +647,19 @@ public class DataSourceServiceImpl extends BaseServiceImpl implements DataSource
             if (null == connection) {
                 throw new ServiceException(Status.DATASOURCE_CONNECT_FAILED);
             }
-            if (dataSource.getType() == DbType.POSTGRESQL) {
-                rs = connection.createStatement().executeQuery(Constants.DATABASES_QUERY_PG);
-            } else {
-                rs = connection.createStatement().executeQuery(Constants.DATABASES_QUERY);
+
+            switch (dataSource.getType()) {
+                case POSTGRESQL:
+                    rs = connection.createStatement().executeQuery(Constants.DATABASES_QUERY_PG);
+                    break;
+                case ORACLE:
+                    rs = connection.createStatement().executeQuery(Constants.DATABASES_QUERY_ORACLE);
+                    break;
+                default:
+                    rs = connection.createStatement().executeQuery(Constants.DATABASES_QUERY);
+                    break;
             }
+
             tableList = new ArrayList<>();
             while (rs.next()) {
                 String name = rs.getString(1);

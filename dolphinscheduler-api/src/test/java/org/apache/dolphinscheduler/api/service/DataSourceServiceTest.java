@@ -366,14 +366,41 @@ public class DataSourceServiceTest {
         return Collections.singletonList(getOracleDataSource(3));
     }
 
+    private DataSource getPostgresDataSource() {
+        DataSource dataSource = new DataSource();
+        dataSource.setName("pg");
+        dataSource.setNote("Note");
+        dataSource.setType(DbType.POSTGRESQL);
+        dataSource.setConnectionParams(
+                "{\"user\":\"wedata_test1\",\"password\":\"Wedata@12345\"," +
+                        "\"address\":\"jdbc:postgresql://100.109.8.170:7810\"," +
+                        "\"database\":\"hudi\",\"jdbcUrl\":\"jdbc:postgresql://100.109.8.170:7810/hudi\"," +
+                        "\"driverClassName\":\"org.postgresql.Driver\",\"validationQuery\":\"select version()\"}");
+
+        return dataSource;
+    }
+
+    private DataSource getHiveDataSource() {
+        DataSource dataSource = new DataSource();
+        dataSource.setName("mrs-hive");
+        dataSource.setNote("Note");
+        dataSource.setType(DbType.HIVE);
+        dataSource.setConnectionParams(
+                "{\"user\":\"u_cmhk_mdl_adm@HADOOP.COM\",\"password\":\"\",\"address\":\"jdbc:hive2://100.76.160.201:24002,100.76.160.202:24002,100.76.160.203:24002\",\"database\":\"ads_cmhk_mdl\",\"jdbcUrl\":\"jdbc:hive2://100.76.160.201:24002,100.76.160.202:24002,100.76.160.203:24002/ads_cmhk_mdl;principal=hive/hadoop.hadoop.com@HADOOP.COM;user.principal=u_cmhk_mdl_adm@HADOOP.COM;user.keytab=/opt/security/user.keytab\",\"driverClassName\":\"org.apache.hive.jdbc.HiveDriver\",\"validationQuery\":\"select 1\",\"other\":{\"auth\":\"KERBEROS\",\"serviceDiscoveryMode\":\"zooKeeper\",\"zooKeeperNamespace\":\"hiveserver2\",\"sasl.qop\":\"auth-conf\",\"hiveMetastoreUris\":\"thrift://100.76.160.201:21088,thrift://100.76.160.202:21088\"},\"principal\":\"hive/hadoop.hadoop.com@HADOOP.COM\",\"javaSecurityKrb5Conf\":\"/opt/security/krb5.conf\",\"loginUserKeytabUsername\":\"u_cmhk_mdl_adm@HADOOP.COM\",\"loginUserKeytabPath\":\"/opt/security/user.keytab\"}");
+
+        return dataSource;
+    }
+
     private DataSource getOracleDataSource() {
         DataSource dataSource = new DataSource();
-        dataSource.setName("test");
+        dataSource.setName("sag");
         dataSource.setNote("Note");
         dataSource.setType(DbType.ORACLE);
         dataSource.setConnectionParams(
-                "{\"connectType\":\"ORACLE_SID\",\"address\":\"jdbc:oracle:thin:@192.168.xx.xx:49161\",\"database\":\"XE\","
-                        + "\"jdbcUrl\":\"jdbc:oracle:thin:@192.168.xx.xx:49161/XE\",\"user\":\"system\",\"password\":\"oracle\"}");
+                "{\"user\":\"wedata_test\",\"password\":\"Wedata@12345\"," +
+                        "\"address\":\"jdbc:oracle:thin:@//100.76.75.49:1634\",\"database\":\"sag\"," +
+                        "\"jdbcUrl\":\"jdbc:oracle:thin:@//100.76.75.49:1634/sag\",\"driverClassName\":\"oracle.jdbc.OracleDriver\"," +
+                        "\"validationQuery\":\"select 1 from dual\",\"connectType\":\"ORACLE_SERVICE_NAME\"}");
 
         return dataSource;
     }
@@ -389,6 +416,7 @@ public class DataSourceServiceTest {
 
         return dataSource;
     }
+
     private DataSource getOracleDataSource(int dataSourceId) {
         DataSource dataSource = new DataSource();
         dataSource.setId(dataSourceId);
@@ -620,12 +648,55 @@ public class DataSourceServiceTest {
     @Test
     public void testGetTableColumns() throws SQLException {
 
-        DataSource dataSource = getMysqlDataSource();
-        int dataSourceId = 1;
+        // DataSource dataSource = getMysqlDataSource();
+        // int dataSourceId = 1;
+
+        DataSource dataSource = getHiveDataSource();
+        int dataSourceId = 5;
         dataSource.setId(dataSourceId);
         Mockito.when(dataSourceMapper.selectById(dataSourceId)).thenReturn(dataSource);
-        List<ParamsOptions> ps = dataSourceService.getTableColumns(1, "smartbi","t_ds_datasource");
+        // List<ParamsOptions> ps = dataSourceService.getTableColumns(1, "smartbi", "t_ds_task_instance");
+        List<ParamsOptions> ps = dataSourceService.getTableColumns(5, "ads_cmhk_mdl", "mysql_cdc_hudi_test_rt");
         Assertions.assertNotNull(ps);
 
+    }
+
+    @Test
+    void testGetTables() throws SQLException {
+
+        // DataSource dataSource = getHiveDataSource();
+        // int dataSourceId = 5;
+
+        DataSource dataSource = getOracleDataSource();
+        int dataSourceId = 3;
+
+        // DataSource dataSource = getMysqlDataSource();
+        // int dataSourceId = 1;
+        dataSource.setId(dataSourceId);
+        Mockito.when(dataSourceMapper.selectById(dataSourceId)).thenReturn(dataSource);
+        List<ParamsOptions> ps = dataSourceService.getTables(3, "WEDATA_TEST");
+        Assertions.assertNotNull(ps);
+
+    }
+
+    @Test
+    public void testGetDatabasesNew() throws SQLException {
+        // DataSource dataSource = getOracleDataSource();
+        // int datasourceId = 3;
+        // DataSource dataSource = getPostgresDataSource();
+        // int datasourceId = 2;
+
+        DataSource dataSource = getHiveDataSource();
+        int datasourceId = 5;
+
+        dataSource.setId(datasourceId);
+        Mockito.when(dataSourceMapper.selectById(datasourceId)).thenReturn(dataSource);
+
+        try {
+            List<ParamsOptions> databases = dataSourceService.getDatabases(datasourceId);
+            Assertions.assertNotNull(databases);
+        } catch (Exception e) {
+            Assertions.assertTrue(e.getMessage().contains(Status.QUERY_DATASOURCE_ERROR.getMsg()));
+        }
     }
 }

@@ -33,6 +33,8 @@ public class ParamsOptions {
 
     private String size;
 
+    private boolean primaryKey;
+
     /**
      * is can be select
      */
@@ -75,6 +77,11 @@ public class ParamsOptions {
         return this;
     }
 
+    public ParamsOptions PrimaryKey(boolean isKey) {
+        setPrimaryKey(isKey);
+        return this;
+    }
+
     @JsonProperty("type")
     public String getType() {
         return type;
@@ -91,6 +98,15 @@ public class ParamsOptions {
 
     public void setSize(String size) {
         this.size = size;
+    }
+
+    @JsonProperty("isPrimaryKey")
+    public boolean isPrimaryKey() {
+        return primaryKey;
+    }
+
+    public void setPrimaryKey(boolean primaryKey) {
+        this.primaryKey = primaryKey;
     }
 
     @JsonProperty("disabled")

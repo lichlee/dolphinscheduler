@@ -347,6 +347,7 @@
         <dependency>
             <groupId>org.owasp</groupId>
             <artifactId>dependency-check-maven</artifactId>
+            <version>${owasp-dependency-check-maven.version}</version>
             <type>maven-plugin</type>
         </dependency>
     </dependencies>
@@ -525,6 +526,7 @@
             <plugin>
                 <groupId>org.owasp</groupId>
                 <artifactId>dependency-check-maven</artifactId>
+                <version>${owasp-dependency-check-maven.version}</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
