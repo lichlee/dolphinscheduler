@@ -667,14 +667,17 @@ public class DataSourceServiceTest {
         // DataSource dataSource = getHiveDataSource();
         // int dataSourceId = 5;
 
-        DataSource dataSource = getOracleDataSource();
+        // DataSource dataSource = getOracleDataSource();
+
+        DataSource dataSource = getPostgresDataSource();
         int dataSourceId = 3;
+
 
         // DataSource dataSource = getMysqlDataSource();
         // int dataSourceId = 1;
         dataSource.setId(dataSourceId);
         Mockito.when(dataSourceMapper.selectById(dataSourceId)).thenReturn(dataSource);
-        List<ParamsOptions> ps = dataSourceService.getTables(3, "WEDATA_TEST");
+        List<ParamsOptions> ps = dataSourceService.getTables(3, "hudi");
         Assertions.assertNotNull(ps);
 
     }
@@ -698,5 +701,12 @@ public class DataSourceServiceTest {
         } catch (Exception e) {
             Assertions.assertTrue(e.getMessage().contains(Status.QUERY_DATASOURCE_ERROR.getMsg()));
         }
+    }
+
+    @Test
+    void jsonTest(){
+        String c = "{\"user\":\"wedata_test1\",\"password\":\"Wedata@12345\",\"address\":\"jdbc:postgresql://100.109.8.170:7810\",\"database\":\"hudi\",\"jdbcUrl\":\"jdbc:postgresql://100.109.8.170:7810/hudi\",\"driverClassName\":\"org.postgresql.Driver\",\"validationQuery\":\"select version()\"}";
+        String d = JSONUtils.parseObject(c).get("database").asText();
+        System.out.println(d);
     }
 }

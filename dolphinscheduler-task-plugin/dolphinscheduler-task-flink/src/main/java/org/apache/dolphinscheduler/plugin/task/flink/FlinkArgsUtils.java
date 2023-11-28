@@ -248,6 +248,8 @@ public class FlinkArgsUtils {
                 if (StringUtils.isNotEmpty(appName)) { // -ynm
                     args.add(FlinkConstants.FLINK_APP_NAME);
                     args.add(ArgsUtils.escape(appName));
+
+                    args.add(StringUtils.join(FlinkConstants.FLINK_APP_NAME_D,"=", ArgsUtils.escape(appName)));
                 }
 
                 // judge flink version, the parameter -yn has removed from flink 1.10

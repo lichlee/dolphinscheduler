@@ -625,6 +625,8 @@ public class DataSourceServiceImpl extends BaseServiceImpl implements DataSource
 
         DataSource dataSource = dataSourceMapper.selectById(datasourceId);
 
+        String databaseName = JSONUtils.parseObject(dataSource.getConnectionParams()).get("database").asText();
+
         if (dataSource == null) {
             throw new ServiceException(Status.QUERY_DATASOURCE_ERROR);
         }
@@ -650,13 +652,13 @@ public class DataSourceServiceImpl extends BaseServiceImpl implements DataSource
 
             switch (dataSource.getType()) {
                 case POSTGRESQL:
-                    rs = connection.createStatement().executeQuery(Constants.DATABASES_QUERY_PG);
+                    rs = connection.createStatement().executeQuery(StringUtils.join(Constants.DATABASES_QUERY_PG," where datname = '", databaseName, "'"));
                     break;
                 case ORACLE:
-                    rs = connection.createStatement().executeQuery(Constants.DATABASES_QUERY_ORACLE);
+                    rs = connection.createStatement().executeQuery(StringUtils.join(Constants.DATABASES_QUERY_ORACLE, " where username = '", databaseName, "'"));
                     break;
                 default:
-                    rs = connection.createStatement().executeQuery(Constants.DATABASES_QUERY);
+                    rs = connection.createStatement().executeQuery(StringUtils.join(Constants.DATABASES_QUERY, " like '", databaseName, "'"));
                     break;
             }
 

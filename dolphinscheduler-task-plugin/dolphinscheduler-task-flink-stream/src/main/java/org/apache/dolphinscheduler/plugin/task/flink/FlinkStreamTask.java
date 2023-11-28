@@ -56,6 +56,10 @@ public class FlinkStreamTask extends FlinkTask implements StreamTask {
     public void init() {
 
         flinkParameters = JSONUtils.parseObject(taskExecutionContext.getTaskParams(), FlinkStreamParameters.class);
+
+        if(StringUtils.isEmpty(flinkParameters.getAppName())){
+            flinkParameters.setAppName(taskExecutionContext.getTaskName());
+        }
         log.info("Initialize Flink task params {}", JSONUtils.toPrettyJsonString(flinkParameters));
 
         if (flinkParameters == null || !flinkParameters.checkParameters()) {
