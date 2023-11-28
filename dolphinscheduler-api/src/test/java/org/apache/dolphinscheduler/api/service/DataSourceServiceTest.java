@@ -375,7 +375,7 @@ public class DataSourceServiceTest {
                 "{\"user\":\"wedata_test1\",\"password\":\"Wedata@12345\"," +
                         "\"address\":\"jdbc:postgresql://100.109.8.170:7810\"," +
                         "\"database\":\"hudi\",\"jdbcUrl\":\"jdbc:postgresql://100.109.8.170:7810/hudi\"," +
-                        "\"driverClassName\":\"org.postgresql.Driver\",\"validationQuery\":\"select version()\"}");
+                        "\"driverClassName\":\"org.postgresql.Driver\",\"validationQuery\":\"select version()\",\"other\":{\"ssl\":\"false\"}}");
 
         return dataSource;
     }
@@ -683,11 +683,11 @@ public class DataSourceServiceTest {
     public void testGetDatabasesNew() throws SQLException {
         // DataSource dataSource = getOracleDataSource();
         // int datasourceId = 3;
-        // DataSource dataSource = getPostgresDataSource();
-        // int datasourceId = 2;
+        DataSource dataSource = getPostgresDataSource();
+        int datasourceId = 2;
 
-        DataSource dataSource = getHiveDataSource();
-        int datasourceId = 5;
+        // DataSource dataSource = getHiveDataSource();
+        // int datasourceId = 5;
 
         dataSource.setId(datasourceId);
         Mockito.when(dataSourceMapper.selectById(datasourceId)).thenReturn(dataSource);

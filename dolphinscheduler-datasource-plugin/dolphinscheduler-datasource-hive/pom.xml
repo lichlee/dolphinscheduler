@@ -323,6 +323,10 @@
                     <artifactId>jetty-runner</artifactId>
                     <groupId>org.eclipse.jetty</groupId>
                 </exclusion>
+                <exclusion>
+                    <artifactId>gsjdbc4</artifactId>
+                    <groupId>com.huawei.gsjdbc4.bigdata</groupId>
+                </exclusion>
             </exclusions>
         </dependency>
     </dependencies>
